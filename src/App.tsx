@@ -9,7 +9,7 @@ import Header from './components/layout/Header'
 import LeftPanel from './components/layout/LeftPanel'
 import RightPanel from './components/layout/RightPanel'
 import BottomBar from './components/layout/BottomBar'
-import OfficeScene from './components/office/OfficeScene'
+import ThreeOffice from './components/office/ThreeOffice'
 
 export default function App() {
   const [selectedAgentId, setSelectedAgentId] = useState<AgentId | null>(null)
@@ -52,8 +52,12 @@ export default function App() {
     ? (agents.find((a) => a.id === selectedAgentId) ?? null)
     : null
 
-  const handleSelectAgent = (id: AgentId) => {
-    setSelectedAgentId((prev) => (prev === id ? null : id))
+  const handleSelectAgent = (id: AgentId | null) => {
+    if (id === null) {
+      setSelectedAgentId(null)
+    } else {
+      setSelectedAgentId((prev) => (prev === id ? null : id))
+    }
   }
 
   return (
@@ -78,10 +82,10 @@ export default function App() {
           onSelectAgent={handleSelectAgent}
         />
 
-        <OfficeScene
+        <ThreeOffice
           agents={agents}
-          selectedAgentId={selectedAgentId}
-          onSelectAgent={handleSelectAgent}
+          selectedId={selectedAgentId}
+          onSelect={handleSelectAgent}
         />
 
         <RightPanel
