@@ -185,10 +185,18 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
     <group
       ref={groupRef}
       position={agent.deskPos}
-      onClick={(e) => { e.stopPropagation(); setSelected(isSelected ? null : agent.id) }}
-      onPointerOver={(e) => { e.stopPropagation(); setHovered(agent.id); document.body.style.cursor = 'pointer' }}
-      onPointerOut={() => { setHovered(null); document.body.style.cursor = 'auto' }}
     >
+      {/* Invisible touch/click hitbox */}
+      <mesh
+        visible={false}
+        onClick={(e) => { e.stopPropagation(); setSelected(isSelected ? null : agent.id) }}
+        onPointerOver={(e) => { e.stopPropagation(); setHovered(agent.id); if (!isMobile) document.body.style.cursor = 'pointer' }}
+        onPointerOut={() => { setHovered(null); if (!isMobile) document.body.style.cursor = 'auto' }}
+      >
+        <boxGeometry args={[1.2, 2.5, 1.2]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
+
       {/* Body group */}
       <group ref={bodyRef} position={[0, 0.3, 0]}>
         <mesh castShadow>
@@ -258,12 +266,14 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
 
       {/* Billboard name tag */}
       {!isMobile && (
-        <Billboard position={[0, 1.6, 0]}>
+        <Billboard position={[0, 1.8, 0]}>
           <Text
-            fontSize={0.14}
+            fontSize={0.16}
             color={agent.color}
             anchorX="center"
             anchorY="bottom"
+            outlineWidth={0.02}
+            outlineColor="#000000"
           >
             {agent.name}
           </Text>
@@ -273,6 +283,8 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
             anchorX="center"
             anchorY="top"
             position={[0, -0.05, 0]}
+            outlineWidth={0.02}
+            outlineColor="#000000"
           >
             {agent.role}
           </Text>

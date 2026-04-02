@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei'
-import { EffectComposer, Bloom, N8AO, ToneMapping } from '@react-three/postprocessing'
+import { EffectComposer, Bloom, Vignette, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import Office from './scene/Office'
 import AgentCharacter from './scene/AgentCharacter'
@@ -17,7 +17,7 @@ import PriorityRings from './hud/PriorityRings'
 import CollabFeed from './hud/CollabFeed'
 import AgentDetailPanel from './hud/AgentDetailPanel'
 import MeetingModal from './hud/MeetingModal'
-import MobileBottomSheet from './hud/MobileBottomSheet'
+import MobileBottomSheet, { MobileAgentSheet } from './hud/MobileBottomSheet'
 
 function useIsMobile() {
   const [mobile, setMobile] = useState(() =>
@@ -121,8 +121,8 @@ export default function AgentOpsCenter() {
           {/* Post-processing */}
           {!isMobile && (
             <EffectComposer>
-              <N8AO aoRadius={0.5} intensity={2} distanceFalloff={0.2} />
-              <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.3} intensity={0.4} mipmapBlur />
+              <Bloom luminanceThreshold={0.7} luminanceSmoothing={0.3} intensity={0.5} mipmapBlur />
+              <Vignette darkness={0.4} offset={0.3} />
               <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
             </EffectComposer>
           )}
@@ -152,6 +152,12 @@ export default function AgentOpsCenter() {
             open={sheetOpen}
             setOpen={setSheetOpen}
             selectedAgent={selectedAgent}
+          />
+        )}
+        {isMobile && (
+          <MobileAgentSheet
+            agentId={selectedAgent}
+            onClose={() => useSimStore.getState().setSelected(null)}
           />
         )}
       </div>
