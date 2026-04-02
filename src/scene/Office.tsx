@@ -1,148 +1,237 @@
-import { useMemo } from 'react';
-import * as THREE from 'three';
-import { ContactShadows, Text } from '@react-three/drei';
+import { useRef } from 'react'
+import { ContactShadows, Grid } from '@react-three/drei'
+import * as THREE from 'three'
 
-function GridFloor() {
-  const geometry = useMemo(() => new THREE.PlaneGeometry(40, 30), []);
-  const material = useMemo(() => {
-    const mat = new THREE.ShaderMaterial({
-      uniforms: {
-        color1: { value: new THREE.Color('#0F1620') },
-        color2: { value: new THREE.Color('#1a2035') },
-        gridSize: { value: 1.0 },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 color1;
-        uniform vec3 color2;
-        uniform float gridSize;
-        varying vec2 vUv;
-        void main() {
-          vec2 grid = fract(vUv * vec2(40.0, 30.0));
-          float lineX = step(0.97, grid.x) + step(0.97, 1.0 - grid.x);
-          float lineY = step(0.97, grid.y) + step(0.97, 1.0 - grid.y);
-          float line = clamp(lineX + lineY, 0.0, 1.0) * 0.18;
-          gl_FragColor = vec4(mix(color1, color2, line), 1.0);
-        }
-      `,
-      side: THREE.DoubleSide,
-    });
-    return mat;
-  }, []);
+export default function Office() {
+  const wallMat = { color: '#2a2a3e', roughness: 0.9 }
+  const wallH = 0.5
 
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={geometry} material={material} receiveShadow />
-  );
-}
-
-function WallSegment({ position, size }: { position: [number, number, number]; size: [number, number, number] }) {
-  const material = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#0d1221',
-    roughness: 0.8,
-    metalness: 0.1,
-  }), []);
-  const geometry = useMemo(() => new THREE.BoxGeometry(...size), [size]);
-  return <mesh position={position} geometry={geometry} material={material} castShadow />;
-}
-
-function GlassPanel({ position, size }: { position: [number, number, number]; size: [number, number, number] }) {
-  const material = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color: '#00D4FF',
-    transmission: 0.92,
-    opacity: 0.15,
-    transparent: true,
-    roughness: 0.05,
-    metalness: 0.1,
-    ior: 1.5,
-    thickness: 0.05,
-  }), []);
-  const geometry = useMemo(() => new THREE.BoxGeometry(...size), [size]);
-  return <mesh position={position} geometry={geometry} material={material} />;
-}
-
-function NeonStrip({ start, end, color = '#00D4FF' }: { start: [number, number, number]; end: [number, number, number]; color?: string }) {
-  const geometry = useMemo(() => {
-    const dir = new THREE.Vector3(end[0] - start[0], end[1] - start[1], end[2] - start[2]);
-    const length = dir.length();
-    return new THREE.BoxGeometry(Math.abs(dir.x) || 0.04, Math.abs(dir.y) || 0.04, Math.abs(dir.z) || 0.04);
-  }, [start, end]);
-  const material = useMemo(() => new THREE.MeshStandardMaterial({
-    color,
-    emissive: color,
-    emissiveIntensity: 2.0,
-    toneMapped: false,
-  }), [color]);
-  const midPos: [number, number, number] = [
-    (start[0] + end[0]) / 2,
-    (start[1] + end[1]) / 2,
-    (start[2] + end[2]) / 2,
-  ];
-  return <mesh position={midPos} geometry={geometry} material={material} />;
-}
-
-export function Office() {
   return (
     <group>
-      <GridFloor />
+      {/* Floor */}
+      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
+        <planeGeometry args={[30, 20]} />
+        <meshStandardMaterial color="#1a1a2e" roughness={0.95} />
+      </mesh>
 
-      {/* Walls */}
-      <WallSegment position={[-15, 0.25, 0]} size={[0.3, 0.5, 30]} />
-      <WallSegment position={[15, 0.25, 0]} size={[0.3, 0.5, 30]} />
-      <WallSegment position={[0, 0.25, -15]} size={[30, 0.5, 0.3]} />
-      <WallSegment position={[0, 0.25, 15]} size={[30, 0.5, 0.3]} />
+      {/* Interior warm floor */}
+      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+        <planeGeometry args={[20, 12]} />
+        <meshStandardMaterial color="#f5e6d3" roughness={0.8} />
+      </mesh>
 
-      {/* Glass panels on two sides */}
-      <GlassPanel position={[15, 1.5, 0]} size={[0.08, 3, 28]} />
-      <GlassPanel position={[0, 1.5, 15]} size={[28, 3, 0.08]} />
+      {/* Grid overlay */}
+      <Grid
+        position={[0, 0.001, 0]}
+        args={[30, 20]}
+        cellSize={1}
+        cellThickness={0.3}
+        cellColor="#333355"
+        sectionSize={5}
+        sectionThickness={0.8}
+        sectionColor="#444466"
+        fadeDistance={40}
+        fadeStrength={1}
+        infiniteGrid={false}
+      />
 
-      {/* Neon accent strips along base */}
-      <NeonStrip start={[-15, 0.01, -15]} end={[15, 0.01, -15]} />
-      <NeonStrip start={[-15, 0.01, 15]} end={[15, 0.01, 15]} />
-      <NeonStrip start={[-15, 0.01, -15]} end={[-15, 0.01, 15]} />
-      <NeonStrip start={[15, 0.01, -15]} end={[15, 0.01, 15]} />
+      {/* Room walls */}
+      {/* Front wall */}
+      <mesh position={[0, wallH / 2, -7]} castShadow>
+        <boxGeometry args={[22, wallH, 0.3]} />
+        <meshStandardMaterial {...wallMat} />
+      </mesh>
+      {/* Back wall */}
+      <mesh position={[0, wallH / 2, 7]} castShadow>
+        <boxGeometry args={[22, wallH, 0.3]} />
+        <meshStandardMaterial {...wallMat} />
+      </mesh>
+      {/* Left wall */}
+      <mesh position={[-11, wallH / 2, 0]} castShadow>
+        <boxGeometry args={[0.3, wallH, 14]} />
+        <meshStandardMaterial {...wallMat} />
+      </mesh>
+      {/* Right wall (partial — hardware side) */}
+      <mesh position={[11, wallH / 2, 0]} castShadow>
+        <boxGeometry args={[0.3, wallH, 14]} />
+        <meshStandardMaterial {...wallMat} />
+      </mesh>
 
       {/* Contact shadows */}
       <ContactShadows
-        position={[0, 0.01, 0]}
-        width={40}
-        height={30}
-        far={3}
+        position={[0, 0.001, 0]}
+        opacity={0.4}
+        scale={25}
         blur={2}
-        opacity={0.6}
-        color="#000010"
+        far={4}
       />
 
-      {/* Sync Chamber */}
-      <SyncChamber />
+      {/* Coffee station */}
+      <CoffeeStation />
+
+      {/* Meeting table */}
+      <MeetingTable />
+
+      {/* Decorations */}
+      <Plant position={[-9, 0, 5]} />
+      <Plant position={[-9, 0, -5]} />
+      <Plant position={[6, 0, 5]} />
+      <FloorLamp position={[-8, 0, 6]} />
+      <Couch />
+      <Bookshelf />
     </group>
-  );
+  )
 }
 
-function SyncChamber() {
-  const ringGeom = useMemo(() => new THREE.TorusGeometry(2, 0.04, 8, 64), []);
-  const ringMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#8B5CF6',
-    emissive: '#8B5CF6',
-    emissiveIntensity: 1.2,
-    toneMapped: false,
-  }), []);
-  const platformGeom = useMemo(() => new THREE.CylinderGeometry(2, 2, 0.05, 48), []);
-  const platformMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#1a0f2e',
-    emissive: '#8B5CF6',
-    emissiveIntensity: 0.15,
-  }), []);
+function CoffeeStation() {
+  return (
+    <group position={[8, 0, 0]}>
+      {/* Counter */}
+      <mesh castShadow position={[0, 0.4, 0]}>
+        <boxGeometry args={[2, 0.8, 0.8]} />
+        <meshStandardMaterial color="#6B4226" roughness={0.7} />
+      </mesh>
+      {/* Coffee machine */}
+      <mesh position={[-0.4, 0.9, 0]}>
+        <boxGeometry args={[0.5, 0.3, 0.4]} />
+        <meshStandardMaterial color="#222" roughness={0.5} />
+      </mesh>
+      {/* Machine top */}
+      <mesh position={[-0.4, 1.1, 0]}>
+        <boxGeometry args={[0.3, 0.1, 0.3]} />
+        <meshStandardMaterial color="#333" />
+      </mesh>
+      {/* Mugs */}
+      {[-0.1, 0.2, 0.5].map((x, i) => (
+        <group key={i} position={[x, 0.85, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.08, 0.06, 0.12, 8]} />
+            <meshStandardMaterial color={i === 0 ? '#3B82F6' : i === 1 ? '#10B981' : '#F59E0B'} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
 
+function MeetingTable() {
+  const chairPositions: [number, number, number, number][] = [
+    [0, 0, -2, 0],
+    [0, 0, 2, Math.PI],
+    [-2, 0, 0, Math.PI / 2],
+    [2, 0, 0, -Math.PI / 2],
+  ]
   return (
     <group position={[0, 0, 0]}>
-      <mesh geometry={platformGeom} material={platformMat} position={[0, 0.025, 0]} />
-      <mesh geometry={ringGeom} material={ringMat} position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]} />
+      {/* Table top */}
+      <mesh castShadow position={[0, 0.75, 0]}>
+        <cylinderGeometry args={[1.5, 1.5, 0.05, 32]} />
+        <meshStandardMaterial color="#5C3D2E" roughness={0.6} />
+      </mesh>
+      {/* Table leg */}
+      <mesh position={[0, 0.375, 0]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.75, 8]} />
+        <meshStandardMaterial color="#444" />
+      </mesh>
+      {/* Chairs */}
+      {chairPositions.map(([x, y, z, rot], i) => (
+        <group key={i} position={[x, y, z]} rotation={[0, rot, 0]}>
+          {/* Seat */}
+          <mesh position={[0, 0.4, 0]}>
+            <boxGeometry args={[0.5, 0.05, 0.5]} />
+            <meshStandardMaterial color="#1e3a5f" />
+          </mesh>
+          {/* Back */}
+          <mesh position={[0, 0.7, -0.2]}>
+            <boxGeometry args={[0.5, 0.5, 0.05]} />
+            <meshStandardMaterial color="#1e3a5f" />
+          </mesh>
+          {/* Legs */}
+          {[[-0.2, -0.2], [-0.2, 0.2], [0.2, -0.2], [0.2, 0.2]].map(([lx, lz], li) => (
+            <mesh key={li} position={[lx, 0.2, lz]}>
+              <cylinderGeometry args={[0.02, 0.02, 0.4, 6]} />
+              <meshStandardMaterial color="#555" />
+            </mesh>
+          ))}
+        </group>
+      ))}
     </group>
-  );
+  )
+}
+
+function Plant({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.2, 0]}>
+        <cylinderGeometry args={[0.2, 0.15, 0.4, 8]} />
+        <meshStandardMaterial color="#8B4513" roughness={0.9} />
+      </mesh>
+      <mesh position={[0, 0.6, 0]}>
+        <sphereGeometry args={[0.35, 8, 6]} />
+        <meshStandardMaterial color="#2d5a27" roughness={0.8} />
+      </mesh>
+      <mesh position={[0.15, 0.45, 0.1]}>
+        <sphereGeometry args={[0.22, 8, 6]} />
+        <meshStandardMaterial color="#3a7a32" roughness={0.8} />
+      </mesh>
+    </group>
+  )
+}
+
+function FloorLamp({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 1, 0]}>
+        <cylinderGeometry args={[0.03, 0.03, 2, 6]} />
+        <meshStandardMaterial color="#888" metalness={0.5} />
+      </mesh>
+      <mesh position={[0, 2.1, 0]}>
+        <sphereGeometry args={[0.2, 8, 6]} />
+        <meshStandardMaterial color="#ffe4a0" emissive="#ffe4a0" emissiveIntensity={0.5} />
+      </mesh>
+    </group>
+  )
+}
+
+function Couch() {
+  return (
+    <group position={[-9, 0, 0]}>
+      {/* Base */}
+      <mesh position={[0, 0.25, 0]}>
+        <boxGeometry args={[3, 0.5, 1]} />
+        <meshStandardMaterial color="#0d9488" roughness={0.8} />
+      </mesh>
+      {/* Back */}
+      <mesh position={[0, 0.65, -0.45]}>
+        <boxGeometry args={[3, 0.6, 0.1]} />
+        <meshStandardMaterial color="#0d9488" roughness={0.8} />
+      </mesh>
+      {/* Arms */}
+      {[-1.5, 1.5].map((x, i) => (
+        <mesh key={i} position={[x, 0.45, 0]}>
+          <boxGeometry args={[0.1, 0.4, 1]} />
+          <meshStandardMaterial color="#0a7a70" />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function Bookshelf() {
+  return (
+    <group position={[-10, 0, -6]}>
+      {/* Frame */}
+      <mesh position={[0, 1, 0]}>
+        <boxGeometry args={[1.5, 2, 0.4]} />
+        <meshStandardMaterial color="#5C3D2E" roughness={0.8} />
+      </mesh>
+      {/* Books */}
+      {[0.6, 0.9, 1.2, 1.5].map((y, i) => (
+        <mesh key={i} position={[0, y, 0.01]}>
+          <boxGeometry args={[1.3, 0.2, 0.38]} />
+          <meshStandardMaterial color={['#c0392b', '#2980b9', '#27ae60', '#e67e22'][i]} />
+        </mesh>
+      ))}
+    </group>
+  )
 }

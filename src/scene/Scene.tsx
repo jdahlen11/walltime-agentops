@@ -1,118 +1,88 @@
-import { useEffect, useRef } from 'react';
-import { OrbitControls } from '@react-three/drei';
-import { type OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import * as THREE from 'three';
-import { useThree, useFrame } from '@react-three/fiber';
-import { Office } from './Office';
-import { AgentDesk } from './AgentDesk';
-import { AgentCharacter } from './AgentCharacter';
-import { RTX5090, MacMiniM4, GymArea, CoffeeStation } from './Hardware';
-import { DataParticles } from './Particles';
-import { AGENT_CONFIGS, useAgentStore } from '../store/agentStore';
-import { useHardwareStore } from '../store/hardwareStore';
-import { useFeedStore } from '../store/feedStore';
+import { useRef, useEffect } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { OrbitControls, PerspectiveCamera } from '@react-three/drei'
+import { EffectComposer, Bloom } from '@react-three/postprocessing'
+import Office from './Office'
+import AgentDesk from './AgentDesk'
+import AgentCharacter from './AgentCharacter'
+import Hardware from './Hardware'
+import { useAgentStore } from '../store/agentStore'
+import { useFrame } from '@react-three/fiber'
 
-const CAMERA_FOCUS = {
-  default: { position: new THREE.Vector3(0, 18, 20), target: new THREE.Vector3(0, 0, 0) },
-};
+const DESK_POSITIONS: [number, number, number][] = [
+  [-5, 0, -3], [0, 0, -3], [5, 0, -3],
+  [-5, 0, 3],  [0, 0, 3],  [5, 0, 3],
+]
 
-export function Scene() {
-  const controlsRef = useRef<OrbitControlsImpl>(null);
-  const { camera } = useThree();
-  const focusedAgent = useAgentStore(s => s.focusedAgent);
-  const agents = useAgentStore(s => s.agents);
-  const initAgents = useAgentStore(s => s.initAgents);
-  const hwTick = useHardwareStore(s => s.tick);
-  const feedAddRandom = useFeedStore(s => s.addRandomMessage);
+function AgentSystem({ isMobile }: { isMobile: boolean }) {
+  const agents = useAgentStore(s => s.agents)
+  const tickAgents = useAgentStore(s => s.tickAgents)
 
-  useEffect(() => {
-    initAgents();
-    camera.position.set(0, 18, 20);
-
-    const hwInterval = setInterval(hwTick, 2500);
-    const feedInterval = setInterval(feedAddRandom, 5000 + Math.random() * 3000);
-
-    return () => {
-      clearInterval(hwInterval);
-      clearInterval(feedInterval);
-    };
-  }, []);
-
-  // Camera fly-to focused agent
-  const camTargetPos = useRef(new THREE.Vector3(0, 18, 20));
-  const camTargetLook = useRef(new THREE.Vector3(0, 0, 0));
   useFrame((_, delta) => {
-    if (!controlsRef.current) return;
-
-    if (focusedAgent) {
-      const cfg = AGENT_CONFIGS.find(c => c.id === focusedAgent);
-      if (cfg) {
-        const [dx, , dz] = cfg.deskPosition;
-        camTargetPos.current.set(dx + 3, 6, dz + 6);
-        camTargetLook.current.set(dx, 0.5, dz);
-      }
-    } else {
-      camTargetPos.current.set(0, 18, 20);
-      camTargetLook.current.set(0, 0, 0);
-    }
-
-    camera.position.lerp(camTargetPos.current, delta * 1.5);
-    controlsRef.current.target.lerp(camTargetLook.current, delta * 1.5);
-    controlsRef.current.update();
-  });
+    tickAgents(delta)
+  })
 
   return (
     <>
-      {/* Lighting */}
-      <ambientLight intensity={0.3} />
-      <directionalLight
-        position={[8, 15, 10]}
-        intensity={0.8}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-near={0.5}
-        shadow-camera-far={60}
-        shadow-camera-left={-25}
-        shadow-camera-right={25}
-        shadow-camera-top={20}
-        shadow-camera-bottom={-20}
-      />
-      <pointLight position={[0, 8, 0]} intensity={0.4} color="#ffffff" />
+      {agents.map((agent, i) => (
+        <group key={agent.id}>
+          <AgentDesk
+            position={DESK_POSITIONS[i]}
+            color={agent.color}
+            active={agent.state === 'working'}
+          />
+          <AgentCharacter agent={agent} isMobile={isMobile} />
+        </group>
+      ))}
+    </>
+  )
+}
 
+interface SceneProps {
+  isMobile: boolean
+}
+
+export default function Scene({ isMobile }: SceneProps) {
+  return (
+    <Canvas shadows gl={{ antialias: true }}>
+      <PerspectiveCamera makeDefault position={[0, 14, 14]} fov={50} />
       <OrbitControls
-        ref={controlsRef}
-        enableDamping
-        dampingFactor={0.05}
+        enablePan
+        enableZoom
+        enableRotate
         minDistance={5}
-        maxDistance={40}
+        maxDistance={35}
         maxPolarAngle={Math.PI / 2.2}
         target={[0, 0, 0]}
+        // touch controls use defaults (pinch=zoom, two-finger=rotate)
       />
 
+      {/* Lighting */}
+      <ambientLight intensity={0.4} />
+      <directionalLight
+        position={[10, 15, 5]}
+        intensity={1.2}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-far={50}
+        shadow-camera-left={-15}
+        shadow-camera-right={15}
+        shadow-camera-top={15}
+        shadow-camera-bottom={-15}
+      />
+      <pointLight position={[-5, 8, 5]} intensity={0.3} color="#ffeedd" />
+
+      {/* Scene content */}
       <Office />
+      <AgentSystem isMobile={isMobile} />
+      <Hardware />
 
-      {/* Desks */}
-      {AGENT_CONFIGS.map(cfg => {
-        const agentState = agents.get(cfg.id);
-        const status = agentState?.status ?? 'idle';
-        return <AgentDesk key={cfg.id} config={cfg} status={status} />;
-      })}
-
-      {/* Agent characters */}
-      {AGENT_CONFIGS.map(cfg => {
-        const agentState = agents.get(cfg.id);
-        if (!agentState) return null;
-        return <AgentCharacter key={cfg.id} config={cfg} agentState={agentState} />;
-      })}
-
-      {/* Hardware */}
-      <RTX5090 />
-      <MacMiniM4 />
-      <GymArea />
-      <CoffeeStation />
-
-      {/* Particles */}
-      <DataParticles />
-    </>
-  );
+      {/* Post-processing — disabled on mobile */}
+      {!isMobile && (
+        <EffectComposer>
+          <Bloom intensity={0.3} luminanceThreshold={0.9} luminanceSmoothing={0.9} />
+        </EffectComposer>
+      )}
+    </Canvas>
+  )
 }

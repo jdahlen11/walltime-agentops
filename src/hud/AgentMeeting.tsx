@@ -1,296 +1,212 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mic } from 'lucide-react';
-import { AGENT_CONFIGS } from '../store/agentStore';
-import { useFeedStore } from '../store/feedStore';
+import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { X, Plus, Trash2 } from 'lucide-react'
+import { useAgentStore } from '../store/agentStore'
+import { useFeedStore } from '../store/feedStore'
 
-interface WhiteboardItem {
-  id: string;
-  text: string;
-  priority: 'P0' | 'P1' | 'P2';
+interface StickyNote {
+  id: number
+  text: string
+  priority: 'P0' | 'P1' | 'P2'
 }
 
-const INITIAL_WHITEBOARD: WhiteboardItem[] = [
-  { id: 'w1', text: 'Cedars Accelerator — complete demo polish', priority: 'P0' },
-  { id: 'w2', text: 'ESO meeting prep — April 16', priority: 'P0' },
-  { id: 'w3', text: '$500K SAFE investor deck refresh', priority: 'P1' },
-  { id: 'w4', text: 'Landing page (walltime.ai)', priority: 'P1' },
-  { id: 'w5', text: 'RLS on active_walls table', priority: 'P2' },
-  { id: 'w6', text: 'Supabase schema migration', priority: 'P2' },
-];
+const INITIAL_NOTES: StickyNote[] = [
+  { id: 1, text: 'Close ESO integration by Apr 16', priority: 'P0' },
+  { id: 2, text: 'Submit Cedars Accelerator app', priority: 'P0' },
+  { id: 3, text: 'Close $500K SAFE round', priority: 'P1' },
+  { id: 4, text: 'Achieve 95% RLS compliance', priority: 'P1' },
+  { id: 5, text: 'Launch AB-40 content campaign', priority: 'P2' },
+  { id: 6, text: 'Reduce dashboard p95 to <2s', priority: 'P2' },
+]
 
-const PRIORITY_COLORS: Record<string, string> = {
-  P0: '#ef4444',
-  P1: '#F59E0B',
-  P2: '#3B82F6',
-};
-
-const PRIORITY_BG: Record<string, string> = {
-  P0: 'rgba(239,68,68,0.1)',
-  P1: 'rgba(245,158,11,0.1)',
-  P2: 'rgba(59,130,246,0.1)',
-};
-
-function WaveBar({ delay }: { delay: number }) {
-  return (
-    <motion.div
-      animate={{ scaleY: [1, 3, 1, 2, 1] }}
-      transition={{ duration: 0.6, repeat: Infinity, delay, ease: 'easeInOut' }}
-      style={{
-        width: '3px',
-        height: '12px',
-        background: '#22c55e',
-        borderRadius: '2px',
-        transformOrigin: 'bottom',
-      }}
-    />
-  );
+const P_COLORS: Record<string, string> = {
+  P0: '#ef4444', P1: '#eab308', P2: '#3b82f6',
 }
 
 interface AgentMeetingProps {
-  onClose: () => void;
+  open: boolean
+  onClose: () => void
 }
 
-export function AgentMeeting({ onClose }: AgentMeetingProps) {
-  const [speakingIdx, setSpeakingIdx] = useState(0);
-  const [whiteboard, setWhiteboard] = useState<WhiteboardItem[]>(INITIAL_WHITEBOARD);
-  const [newItemText, setNewItemText] = useState('');
-  const [newItemPriority, setNewItemPriority] = useState<'P0' | 'P1' | 'P2'>('P1');
-  const messages = useFeedStore(s => s.messages);
+export default function AgentMeeting({ open, onClose }: AgentMeetingProps) {
+  const agents = useAgentStore(s => s.agents)
+  const messages = useFeedStore(s => s.messages)
+  const [speaking, setSpeaking] = useState(0)
+  const [notes, setNotes] = useState<StickyNote[]>(INITIAL_NOTES)
+  const [newNote, setNewNote] = useState('')
+  const [newPriority, setNewPriority] = useState<'P0'|'P1'|'P2'>('P1')
+  let noteId = useRef(100)
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSpeakingIdx(i => (i + 1) % AGENT_CONFIGS.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+    if (!open) return
+    const id = setInterval(() => {
+      setSpeaking(s => (s + 1) % 6)
+    }, 3000)
+    return () => clearInterval(id)
+  }, [open])
 
-  const removeItem = (id: string) => {
-    setWhiteboard(wb => wb.filter(i => i.id !== id));
-  };
-
-  const addItem = () => {
-    if (!newItemText.trim()) return;
-    setWhiteboard(wb => [...wb, {
-      id: `w-${Date.now()}`,
-      text: newItemText,
-      priority: newItemPriority,
-    }]);
-    setNewItemText('');
-  };
-
-  const speakingAgent = AGENT_CONFIGS[speakingIdx];
+  function addNote() {
+    if (!newNote.trim()) return
+    setNotes(n => [...n, { id: noteId.current++, text: newNote.trim(), priority: newPriority }])
+    setNewNote('')
+  }
 
   return (
-    <motion.div
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0.9, opacity: 0 }}
-      transition={{ duration: 0.25 }}
-      className="fixed inset-4 z-50 rounded-2xl overflow-hidden flex flex-col"
-      style={{
-        background: 'rgba(8, 12, 22, 0.97)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(0, 212, 255, 0.3)',
-        boxShadow: '0 0 60px rgba(0, 212, 255, 0.1)',
-      }}
-    >
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-6 py-4"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1">
-            {[0, 1, 2].map(i => <WaveBar key={i} delay={i * 0.15} />)}
-          </div>
-          <span className="text-lg font-bold text-white">Agent Briefing Room</span>
-          <span
-            className="text-xs px-2 py-0.5 rounded-full"
-            style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid #22c55e40' }}
-          >
-            LIVE
-          </span>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-slate-400 hover:text-white transition-colors p-1"
-          style={{ pointerEvents: 'auto' }}
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex', flexDirection: 'column',
+            padding: 24,
+            pointerEvents: 'auto',
+          }}
         >
-          <X size={20} />
-        </button>
-      </div>
-
-      {/* Body */}
-      <div className="flex flex-1 overflow-hidden gap-0">
-        {/* Left: Agent Grid */}
-        <div className="w-72 shrink-0 p-4 overflow-y-auto" style={{ borderRight: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="text-xs text-slate-500 uppercase tracking-wider mb-3">Agents Online</div>
-          <div className="grid grid-cols-2 gap-2">
-            {AGENT_CONFIGS.map((cfg, i) => {
-              const isSpeaking = i === speakingIdx;
-              return (
-                <motion.div
-                  key={cfg.id}
-                  animate={isSpeaking ? { borderColor: cfg.color } : {}}
-                  className="rounded-xl p-3 flex flex-col items-center gap-2 relative"
-                  style={{
-                    background: isSpeaking ? `rgba(${hexRgb(cfg.color)}, 0.12)` : 'rgba(255,255,255,0.03)',
-                    border: `2px solid ${isSpeaking ? cfg.color : 'rgba(255,255,255,0.06)'}`,
-                    boxShadow: isSpeaking ? `0 0 16px ${cfg.color}50` : 'none',
-                    transition: 'all 0.3s',
-                  }}
-                >
-                  <span className="text-2xl">{cfg.emoji}</span>
-                  <span className="text-xs font-bold text-white">{cfg.displayName}</span>
-                  {isSpeaking && (
-                    <div className="flex gap-0.5 items-end" style={{ height: '14px' }}>
-                      {[0, 1, 2, 3, 4].map(j => <WaveBar key={j} delay={j * 0.1} />)}
-                    </div>
-                  )}
-                  {isSpeaking && (
-                    <motion.div
-                      animate={{ opacity: [1, 0.5, 1] }}
-                      transition={{ duration: 0.8, repeat: Infinity }}
-                      className="absolute top-2 right-2"
-                    >
-                      <Mic size={10} color={cfg.color} />
-                    </motion.div>
-                  )}
-                </motion.div>
-              );
-            })}
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ fontFamily: 'monospace', fontSize: 18, color: '#fbbf24', letterSpacing: 3 }}>
+              AGENT MEETING
+            </div>
+            <button onClick={onClose} style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: 6, padding: '6px 10px', cursor: 'pointer', color: '#94a3b8',
+            }}>
+              <X size={16} />
+            </button>
           </div>
-        </div>
 
-        {/* Center: Transcript */}
-        <div className="flex-1 p-4 overflow-y-auto" style={{ borderRight: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="text-xs text-slate-500 uppercase tracking-wider mb-3">Live Transcript</div>
-          <div className="flex flex-col gap-2">
-            {messages.slice(-12).map(msg => {
-              const isCurrentSpeaker = msg.agentId === speakingAgent.id;
-              return (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex gap-2"
-                  style={{ justifyContent: isCurrentSpeaker ? 'flex-end' : 'flex-start' }}
-                >
-                  <div
-                    className="rounded-xl px-3 py-2 max-w-xs"
+          <div style={{ display: 'flex', gap: 16, flex: 1, overflow: 'hidden' }}>
+            {/* Left: agent grid + transcript */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+              {/* Agent avatars 3x2 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                {agents.map((a, i) => (
+                  <motion.div
+                    key={a.id}
+                    animate={speaking === i ? {
+                      boxShadow: [`0 0 0px ${a.color}`, `0 0 20px ${a.color}`, `0 0 0px ${a.color}`],
+                    } : { boxShadow: 'none' }}
+                    transition={{ duration: 0.8, repeat: speaking === i ? Infinity : 0 }}
                     style={{
-                      background: isCurrentSpeaker
-                        ? `rgba(${hexRgb(msg.agentColor)}, 0.2)`
-                        : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${isCurrentSpeaker ? msg.agentColor + '50' : 'rgba(255,255,255,0.06)'}`,
+                      background: `rgba(${hexToRgb(a.color)},0.15)`,
+                      border: `2px solid ${speaking === i ? a.color : 'rgba(255,255,255,0.1)'}`,
+                      borderRadius: 10,
+                      padding: 16,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                      transition: 'border-color 0.3s',
                     }}
                   >
-                    <div className="text-xs font-bold mb-0.5" style={{ color: msg.agentColor }}>
-                      {msg.agentName}
-                    </div>
-                    <div className="text-xs text-slate-300">{msg.text}</div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right: Whiteboard */}
-        <div className="w-72 shrink-0 p-4 overflow-y-auto">
-          <div className="text-xs text-slate-500 uppercase tracking-wider mb-3">Mission Whiteboard</div>
-
-          {(['P0', 'P1', 'P2'] as const).map(priority => (
-            <div key={priority} className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span
-                  className="text-xs font-bold px-2 py-0.5 rounded"
-                  style={{ background: PRIORITY_BG[priority], color: PRIORITY_COLORS[priority], border: `1px solid ${PRIORITY_COLORS[priority]}40` }}
-                >
-                  {priority}
-                </span>
-                <div className="flex-1 h-px" style={{ background: PRIORITY_COLORS[priority] + '30' }} />
+                    <div style={{ fontSize: 28 }}>{a.emoji}</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 11, color: a.color }}>{a.name}</div>
+                    {speaking === i && (
+                      <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 16 }}>
+                        {[1, 2, 3, 4, 5].map(j => (
+                          <motion.div
+                            key={j}
+                            animate={{ height: [4, 14, 4] }}
+                            transition={{ duration: 0.5, delay: j * 0.1, repeat: Infinity }}
+                            style={{ width: 3, background: a.color, borderRadius: 2 }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
               </div>
-              <div className="flex flex-col gap-1.5">
-                {whiteboard.filter(i => i.priority === priority).map(item => (
-                  <div
-                    key={item.id}
-                    className="flex items-start gap-2 rounded-lg px-3 py-2 group"
-                    style={{ background: PRIORITY_BG[priority], border: `1px solid ${PRIORITY_COLORS[priority]}25` }}
-                  >
-                    <span className="text-xs text-slate-300 flex-1 leading-relaxed">{item.text}</span>
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5"
-                      style={{ pointerEvents: 'auto', fontSize: '12px' }}
-                    >
-                      ×
-                    </button>
+
+              {/* Transcript */}
+              <div style={{
+                flex: 1, background: 'rgba(10,10,20,0.7)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 8, padding: 12, overflowY: 'auto',
+              }}>
+                <div style={{ color: '#475569', fontSize: 9, letterSpacing: 2, marginBottom: 8 }}>TRANSCRIPT</div>
+                {messages.slice(0, 6).map(m => (
+                  <div key={m.id} style={{ marginBottom: 8 }}>
+                    <span style={{ color: m.color, fontFamily: 'monospace', fontSize: 11 }}>{m.text}</span>
                   </div>
                 ))}
               </div>
             </div>
-          ))}
 
-          {/* Add item */}
-          <div className="mt-2">
-            <input
-              type="text"
-              value={newItemText}
-              onChange={e => setNewItemText(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addItem()}
-              placeholder="Add task..."
-              className="w-full text-xs rounded-lg px-3 py-2 mb-1.5"
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: '#e2e8f0',
-                outline: 'none',
-                pointerEvents: 'auto',
-              }}
-            />
-            <div className="flex gap-1.5">
-              {(['P0', 'P1', 'P2'] as const).map(p => (
-                <button
-                  key={p}
-                  onClick={() => setNewItemPriority(p)}
-                  className="text-xs px-2 py-1 rounded flex-1"
+            {/* Right: whiteboard */}
+            <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ color: '#475569', fontFamily: 'monospace', fontSize: 11, letterSpacing: 2 }}>WHITEBOARD</div>
+
+              {/* Add note */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <select
+                  value={newPriority}
+                  onChange={e => setNewPriority(e.target.value as 'P0'|'P1'|'P2')}
                   style={{
-                    background: newItemPriority === p ? PRIORITY_BG[p] : 'rgba(255,255,255,0.03)',
-                    color: newItemPriority === p ? PRIORITY_COLORS[p] : '#64748b',
-                    border: `1px solid ${newItemPriority === p ? PRIORITY_COLORS[p] + '50' : 'rgba(255,255,255,0.06)'}`,
-                    pointerEvents: 'auto',
-                    cursor: 'pointer',
+                    background: 'rgba(10,10,20,0.8)', border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 4, color: '#e2e8f0', fontFamily: 'monospace', fontSize: 11, padding: '4px 6px',
                   }}
                 >
-                  {p}
+                  <option value="P0">P0</option>
+                  <option value="P1">P1</option>
+                  <option value="P2">P2</option>
+                </select>
+                <input
+                  value={newNote}
+                  onChange={e => setNewNote(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addNote()}
+                  placeholder="Add note…"
+                  style={{
+                    flex: 1, background: 'rgba(10,10,20,0.8)', border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 4, color: '#e2e8f0', fontFamily: 'monospace', fontSize: 11,
+                    padding: '4px 8px', outline: 'none',
+                  }}
+                />
+                <button onClick={addNote} style={{
+                  background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)',
+                  borderRadius: 4, color: '#22c55e', cursor: 'pointer', padding: '4px 8px',
+                }}>
+                  <Plus size={14} />
                 </button>
+              </div>
+
+              {/* Notes by priority */}
+              {(['P0', 'P1', 'P2'] as const).map(p => (
+                <div key={p}>
+                  <div style={{ color: P_COLORS[p], fontFamily: 'monospace', fontSize: 10, marginBottom: 4, letterSpacing: 1 }}>
+                    {p} — {p === 'P0' ? 'CRITICAL' : p === 'P1' ? 'HIGH' : 'NORMAL'}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {notes.filter(n => n.priority === p).map(n => (
+                      <div key={n.id} style={{
+                        background: `rgba(${hexToRgb(P_COLORS[p])},0.1)`,
+                        border: `1px solid rgba(${hexToRgb(P_COLORS[p])},0.3)`,
+                        borderRadius: 4, padding: '5px 8px',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      }}>
+                        <span style={{ color: '#cbd5e1', fontFamily: 'monospace', fontSize: 11, flex: 1 }}>{n.text}</span>
+                        <button
+                          onClick={() => setNotes(ns => ns.filter(x => x.id !== n.id))}
+                          style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', padding: '0 0 0 6px' }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ))}
-              <button
-                onClick={addItem}
-                className="text-xs px-3 py-1 rounded"
-                style={{
-                  background: 'rgba(0, 212, 255, 0.15)',
-                  color: '#00D4FF',
-                  border: '1px solid rgba(0,212,255,0.3)',
-                  pointerEvents: 'auto',
-                  cursor: 'pointer',
-                }}
-              >
-                Add
-              </button>
             </div>
           </div>
-        </div>
-      </div>
-    </motion.div>
-  );
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
 }
 
-function hexRgb(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `${r}, ${g}, ${b}`;
+function hexToRgb(hex: string) {
+  const r = parseInt(hex.slice(1,3),16)
+  const g = parseInt(hex.slice(3,5),16)
+  const b = parseInt(hex.slice(5,7),16)
+  return `${r},${g},${b}`
 }

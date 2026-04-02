@@ -1,163 +1,131 @@
-import { create } from 'zustand';
-import * as THREE from 'three';
+import { create } from 'zustand'
 
-export type AgentStatus = 'idle' | 'working' | 'thinking' | 'collaborating' | 'coffee' | 'gym';
+export type AgentState = 'working' | 'thinking' | 'coffee' | 'walking'
 
-export interface AgentConfig {
-  id: string;
-  displayName: string;
-  openclawName: string;
-  role: string;
-  emoji: string;
-  color: string;
-  model: string;
-  deskPosition: [number, number, number];
+export interface Agent {
+  id: string
+  name: string
+  role: string
+  emoji: string
+  color: string
+  model: string
+  basePosition: [number, number, number]
+  position: [number, number, number]
+  targetPosition: [number, number, number]
+  state: AgentState
+  prevState: AgentState
+  stateTimer: number
+  stateDuration: number
+  tokens: number
+  lastAction: string
 }
 
-export interface AgentState {
-  id: string;
-  status: AgentStatus;
-  position: THREE.Vector3;
-  targetPosition: THREE.Vector3;
-  tokens: number;
-  lastAction: string;
-  collaboratingWith: string | null;
-  stateTimer: number;
-  stateDuration: number;
-}
-
-export const AGENT_CONFIGS: AgentConfig[] = [
-  { id: 'scout', displayName: 'Scout', openclawName: 'The Scout', role: 'Intelligence & Monitoring', emoji: '🔍', color: '#3B82F6', model: 'llama4-scout', deskPosition: [-6, 0, -4] },
-  { id: 'engineer', displayName: 'Engineer', openclawName: 'The Engineer', role: 'Technical & Code', emoji: '⚙️', color: '#10B981', model: 'grok-4-1-fast', deskPosition: [0, 0, -4] },
-  { id: 'command', displayName: 'Command', openclawName: 'Main Agent', role: 'Dispatch & Coordination', emoji: '🎯', color: '#8B5CF6', model: 'grok-4-1-fast', deskPosition: [6, 0, -4] },
-  { id: 'capital', displayName: 'Capital', openclawName: 'The Strategist', role: 'Strategy & Fundraising', emoji: '💰', color: '#F59E0B', model: 'qwen3:32b', deskPosition: [-6, 0, 4] },
-  { id: 'content', displayName: 'Content', openclawName: 'Content Agent', role: 'Creative & Comms', emoji: '✍️', color: '#EC4899', model: 'qwen3:32b', deskPosition: [0, 0, 4] },
-  { id: 'analyst', displayName: 'Analyst', openclawName: 'The Analyst', role: 'Data & Research', emoji: '📊', color: '#06B6D4', model: 'deepseek-r1:32b', deskPosition: [6, 0, 4] },
-];
-
-const LAST_ACTIONS: Record<string, string[]> = {
-  scout: ['Crawling ESO docs', 'Monitoring competitors', 'Scraping partner data', 'Indexing intel feeds', 'Scanning EMSA updates'],
-  engineer: ['Pushing RLS fix', 'Refactoring auth layer', 'Debugging cron pipeline', 'Writing schema migration', 'Optimizing query planner'],
-  command: ['Dispatching morning brief', 'Routing task to Analyst', 'Coordinating sprint', 'Sending Telegram digest', 'Orchestrating workflow'],
-  capital: ['Updating SAFE term sheet', 'Modeling cap table', 'Drafting pitch narrative', 'Researching Cedars contacts', 'Reviewing investor CRM'],
-  content: ['Publishing LinkedIn post', 'Drafting AB-40 summary', 'Writing product copy', 'Formatting newsletter', 'Editing landing page'],
-  analyst: ['Generating compliance heatmap', 'Running APOT regression', 'Aggregating SPA data', 'Building Q1 report', 'Analyzing EMSA dataset'],
-};
+export const AGENTS: Agent[] = [
+  {
+    id: 'scout', name: 'Scout', role: 'Research', emoji: '🔍',
+    color: '#3B82F6', model: 'llama4-scout',
+    basePosition: [-5, 0, -3], position: [-5, 0, -3], targetPosition: [-5, 0, -3],
+    state: 'working', prevState: 'working', stateTimer: 0, stateDuration: 20,
+    tokens: 142000, lastAction: 'Crawling ESO partnership docs'
+  },
+  {
+    id: 'engineer', name: 'Engineer', role: 'Engineering', emoji: '⚙️',
+    color: '#10B981', model: 'grok-4-1-fast',
+    basePosition: [0, 0, -3], position: [0, 0, -3], targetPosition: [0, 0, -3],
+    state: 'working', prevState: 'working', stateTimer: 0, stateDuration: 18,
+    tokens: 89000, lastAction: 'Pushed RLS fix for active_walls'
+  },
+  {
+    id: 'command', name: 'Command', role: 'Operations', emoji: '🎯',
+    color: '#8B5CF6', model: 'grok-4-1-fast',
+    basePosition: [5, 0, -3], position: [5, 0, -3], targetPosition: [5, 0, -3],
+    state: 'working', prevState: 'working', stateTimer: 0, stateDuration: 22,
+    tokens: 203000, lastAction: 'Dispatched morning brief'
+  },
+  {
+    id: 'capital', name: 'Capital', role: 'Finance', emoji: '💰',
+    color: '#F59E0B', model: 'qwen3:32b',
+    basePosition: [-5, 0, 3], position: [-5, 0, 3], targetPosition: [-5, 0, 3],
+    state: 'working', prevState: 'working', stateTimer: 0, stateDuration: 16,
+    tokens: 178000, lastAction: 'Updated $500K SAFE term sheet'
+  },
+  {
+    id: 'content', name: 'Content', role: 'Marketing', emoji: '✍️',
+    color: '#EC4899', model: 'qwen3:32b',
+    basePosition: [0, 0, 3], position: [0, 0, 3], targetPosition: [0, 0, 3],
+    state: 'working', prevState: 'working', stateTimer: 0, stateDuration: 19,
+    tokens: 95000, lastAction: 'Published LinkedIn post on AB-40'
+  },
+  {
+    id: 'analyst', name: 'Analyst', role: 'Analytics', emoji: '📊',
+    color: '#06B6D4', model: 'deepseek-r1:32b',
+    basePosition: [5, 0, 3], position: [5, 0, 3], targetPosition: [5, 0, 3],
+    state: 'working', prevState: 'working', stateTimer: 0, stateDuration: 24,
+    tokens: 312000, lastAction: 'EMSA Q1 shows 54% non-compliance'
+  },
+]
 
 interface AgentStore {
-  agents: Map<string, AgentState>;
-  focusedAgent: string | null;
-  meetingOpen: boolean;
-  setStatus: (id: string, status: AgentStatus) => void;
-  setPosition: (id: string, pos: THREE.Vector3) => void;
-  setTargetPosition: (id: string, pos: THREE.Vector3) => void;
-  addTokens: (id: string, amount: number) => void;
-  setLastAction: (id: string, action: string) => void;
-  setCollaborating: (id: string, partnerId: string | null) => void;
-  tickTimer: (id: string, delta: number) => boolean;
-  resetTimer: (id: string, duration: number) => void;
-  setFocusedAgent: (id: string | null) => void;
-  setMeetingOpen: (open: boolean) => void;
-  initAgents: () => void;
+  agents: Agent[]
+  updateAgent: (id: string, updates: Partial<Agent>) => void
+  tickAgents: (delta: number) => void
 }
 
-export const useAgentStore = create<AgentStore>((set, get) => ({
-  agents: new Map(),
-  focusedAgent: null,
-  meetingOpen: false,
+const COFFEE_POS: [number, number, number] = [8, 0, 0]
+const MEET_POS: [number, number, number] = [0, 0, 0]
 
-  initAgents: () => {
-    const agents = new Map<string, AgentState>();
-    AGENT_CONFIGS.forEach((cfg, i) => {
-      const [dx, , dz] = cfg.deskPosition;
-      agents.set(cfg.id, {
-        id: cfg.id,
-        status: 'idle',
-        position: new THREE.Vector3(dx, 0, dz),
-        targetPosition: new THREE.Vector3(dx, 0, dz),
-        tokens: Math.floor(Math.random() * 50000) + 10000,
-        lastAction: LAST_ACTIONS[cfg.id][0],
-        collaboratingWith: null,
-        stateTimer: i * 1.5,
-        stateDuration: 3 + Math.random() * 3,
-      });
-    });
-    set({ agents });
-  },
+function randomBetween(a: number, b: number) {
+  return a + Math.random() * (b - a)
+}
 
-  setStatus: (id, status) => set(state => {
-    const agents = new Map(state.agents);
-    const agent = agents.get(id);
-    if (agent) {
-      const actions = LAST_ACTIONS[id];
-      agents.set(id, {
-        ...agent,
-        status,
-        lastAction: actions[Math.floor(Math.random() * actions.length)],
-      });
-    }
-    return { agents };
-  }),
+function pickNextState(): AgentState {
+  const r = Math.random()
+  if (r < 0.45) return 'working'
+  if (r < 0.60) return 'thinking'
+  if (r < 0.80) return 'coffee'
+  return 'walking'
+}
 
-  setPosition: (id, pos) => set(state => {
-    const agents = new Map(state.agents);
-    const agent = agents.get(id);
-    if (agent) agents.set(id, { ...agent, position: pos.clone() });
-    return { agents };
-  }),
+function stateDuration(state: AgentState): number {
+  switch (state) {
+    case 'working': return randomBetween(15, 25)
+    case 'thinking': return randomBetween(5, 10)
+    case 'coffee': return randomBetween(10, 15)
+    case 'walking': return randomBetween(8, 12)
+    default: return 15
+  }
+}
 
-  setTargetPosition: (id, pos) => set(state => {
-    const agents = new Map(state.agents);
-    const agent = agents.get(id);
-    if (agent) agents.set(id, { ...agent, targetPosition: pos.clone() });
-    return { agents };
-  }),
+export const useAgentStore = create<AgentStore>((set) => ({
+  agents: AGENTS.map(a => ({
+    ...a,
+    stateTimer: -Math.random() * 10, // random stagger
+    stateDuration: stateDuration(a.state),
+  })),
 
-  addTokens: (id, amount) => set(state => {
-    const agents = new Map(state.agents);
-    const agent = agents.get(id);
-    if (agent) agents.set(id, { ...agent, tokens: agent.tokens + amount });
-    return { agents };
-  }),
+  updateAgent: (id, updates) =>
+    set(s => ({ agents: s.agents.map(a => a.id === id ? { ...a, ...updates } : a) })),
 
-  setLastAction: (id, action) => set(state => {
-    const agents = new Map(state.agents);
-    const agent = agents.get(id);
-    if (agent) agents.set(id, { ...agent, lastAction: action });
-    return { agents };
-  }),
+  tickAgents: (delta) =>
+    set(s => ({
+      agents: s.agents.map(a => {
+        let { stateTimer, stateDuration: dur, state, tokens } = a
+        stateTimer += delta
+        tokens += Math.floor(Math.random() * 3)
 
-  setCollaborating: (id, partnerId) => set(state => {
-    const agents = new Map(state.agents);
-    const agent = agents.get(id);
-    if (agent) agents.set(id, { ...agent, collaboratingWith: partnerId });
-    return { agents };
-  }),
-
-  resetTimer: (id, duration) => set(state => {
-    const agents = new Map(state.agents);
-    const agent = agents.get(id);
-    if (agent) agents.set(id, { ...agent, stateTimer: 0, stateDuration: duration });
-    return { agents };
-  }),
-
-  tickTimer: (id, delta) => {
-    const state = get();
-    const agents = new Map(state.agents);
-    const agent = agents.get(id);
-    if (!agent) return false;
-    if (agent.stateDuration <= 0) return false;
-    const newTimer = agent.stateTimer + delta;
-    if (newTimer >= agent.stateDuration) {
-      agents.set(id, { ...agent, stateTimer: agent.stateDuration, stateDuration: -1 });
-      set({ agents });
-      return true;
-    }
-    agents.set(id, { ...agent, stateTimer: newTimer });
-    set({ agents });
-    return false;
-  },
-
-  setFocusedAgent: (id) => set({ focusedAgent: id }),
-  setMeetingOpen: (open) => set({ meetingOpen: open }),
-}));
+        if (stateTimer >= dur) {
+          const next = pickNextState()
+          const nextDur = stateDuration(next)
+          let target = [...a.basePosition] as [number, number, number]
+          if (next === 'coffee') target = COFFEE_POS
+          else if (next === 'walking') {
+            target = [...MEET_POS]
+            target[0] += randomBetween(-1, 1)
+            target[2] += randomBetween(-1, 1)
+          }
+          return { ...a, state: next, prevState: state, stateTimer: 0, stateDuration: nextDur, targetPosition: target, tokens }
+        }
+        return { ...a, stateTimer, tokens }
+      })
+    })),
+}))
