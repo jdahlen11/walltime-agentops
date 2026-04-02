@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei'
-import { EffectComposer, Bloom, Vignette, ToneMapping } from '@react-three/postprocessing'
-import { ToneMappingMode } from 'postprocessing'
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import Office from './scene/Office'
 import AgentCharacter from './scene/AgentCharacter'
 import HardwareNodes from './scene/HardwareNode'
@@ -76,54 +75,58 @@ export default function AgentOpsCenter() {
           dpr={isMobile ? [1, 1.5] : [1, 2]}
           gl={{ antialias: !isMobile }}
         >
-          <PerspectiveCamera makeDefault position={[0, 14, 16]} fov={50} />
+          {/* Locked isometric-ish camera — front-right quadrant only */}
+          <PerspectiveCamera makeDefault fov={30} position={[8, 8, 8]} near={0.1} far={100} />
           <OrbitControls
-            enablePan
-            enableZoom
-            enableRotate
-            minDistance={5}
-            maxDistance={35}
-            maxPolarAngle={Math.PI / 2.2}
-            target={[0, 1, 0]}
+            target={[0, 0.5, 0]}
+            minPolarAngle={Math.PI / 5}
+            maxPolarAngle={Math.PI / 3}
+            minAzimuthAngle={0}
+            maxAzimuthAngle={Math.PI / 2}
+            minDistance={8}
+            maxDistance={18}
+            enableDamping
+            dampingFactor={0.08}
+            rotateSpeed={0.4}
           />
 
-          {/* Lighting */}
-          <ambientLight intensity={0.15} color="#b0c4de" />
+          {/* 7-light warm rig */}
+          <ambientLight color="#2a1f15" intensity={0.2} />
+          {/* @ts-ignore — drei hemisphereLight prop names */}
+          <hemisphereLight args={['#1a1a2e', '#3d2b1f', 0.25]} />
+
+          {/* Key light — cool, casts shadows */}
           <directionalLight
-            position={[0, 8, 2]}
-            intensity={0.65}
-            color="#fff5e6"
+            color="#b0c4de"
+            intensity={0.5}
+            position={[6, 8, 4]}
             castShadow
             shadow-mapSize={isMobile ? [1024, 1024] : [2048, 2048]}
-            shadow-bias={-0.0001}
-            shadow-camera-far={50}
-            shadow-camera-left={-15}
-            shadow-camera-right={15}
-            shadow-camera-top={15}
-            shadow-camera-bottom={-15}
+            shadow-bias={-0.0005}
+            shadow-camera-near={0.1}
+            shadow-camera-far={30}
+            shadow-camera-left={-10}
+            shadow-camera-right={10}
+            shadow-camera-top={10}
+            shadow-camera-bottom={-10}
           />
-          <directionalLight position={[8, 4, 0]} intensity={0.3} color="#e6f0ff" />
 
-          {/* Per-desk colored lights */}
-          {AGENTS.map(a => (
-            <pointLight
-              key={a.id}
-              position={[a.deskPos[0], 1.5, a.deskPos[2]]}
-              intensity={0.4}
-              color={a.color}
-              distance={3}
-              decay={2}
-            />
-          ))}
+          {/* Warm fill from back-left */}
+          <directionalLight color="#ffe4c4" intensity={0.2} position={[-4, 5, -3]} />
+
+          {/* Ceiling practical — dim warm overhead */}
+          <pointLight color="#fff0dc" intensity={0.6} distance={8} decay={2} position={[0, 2.5, 0]} />
+
+          {/* Floor lamp supplement */}
+          <pointLight color="#fde68a" intensity={0.4} distance={5} decay={2} position={[-4.5, 1.5, -4]} />
 
           <SceneInner isMobile={isMobile} />
 
-          {/* Post-processing */}
+          {/* Post-processing — desktop only */}
           {!isMobile && (
             <EffectComposer>
-              <Bloom luminanceThreshold={0.7} luminanceSmoothing={0.3} intensity={0.5} mipmapBlur />
-              <Vignette darkness={0.4} offset={0.3} />
-              <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+              <Bloom luminanceThreshold={0.6} luminanceSmoothing={0.9} intensity={0.5} mipmapBlur />
+              <Vignette offset={0.3} darkness={0.5} />
             </EffectComposer>
           )}
         </Canvas>

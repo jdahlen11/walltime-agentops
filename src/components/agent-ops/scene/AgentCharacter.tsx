@@ -20,8 +20,10 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
   const headRef = useRef<THREE.Group>(null)
   const leftArmRef = useRef<THREE.Group>(null)
   const rightArmRef = useRef<THREE.Group>(null)
-  const leftLegRef = useRef<THREE.Group>(null)
-  const rightLegRef = useRef<THREE.Group>(null)
+  const leftUpperLegRef = useRef<THREE.Group>(null)
+  const rightUpperLegRef = useRef<THREE.Group>(null)
+  const leftLowerLegRef = useRef<THREE.Group>(null)
+  const rightLowerLegRef = useRef<THREE.Group>(null)
 
   const simState = useSimStore(s => s.agentStates[agent.id])
   const advanceWaypoint = useSimStore(s => s.advanceWaypoint)
@@ -39,8 +41,10 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
   const posRef = useRef<[number, number, number]>([...agent.deskPos] as [number, number, number])
   const angleRef = useRef(Math.PI)
 
+  // Left column (x < 0) faces -Z (rotation 0), right column faces +Z (rotation π)
+  const deskFacingAngle = agent.deskPos[0] < 0 ? 0 : Math.PI
+
   const skinColor = '#d4a574'
-  const hairColor = '#2a1a08'
 
   useFrame((state, delta) => {
     if (!groupRef.current || !simState) return
@@ -72,7 +76,7 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
 
       let targetAngle = angleRef.current
       if (agentState === 'working' || agentState === 'thinking') {
-        targetAngle = Math.PI
+        targetAngle = deskFacingAngle
       } else if (agentState === 'coffee') {
         targetAngle = 0
       } else if (agentState === 'meeting') {
@@ -85,17 +89,27 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
       groupRef.current.rotation.y = angleRef.current
     }
 
+    // Lift character to chair-seat height when seated
+    const targetSitY = (agentState === 'working' || agentState === 'thinking') ? 0.45 : 0
+    groupRef.current.position.y = THREE.MathUtils.lerp(
+      groupRef.current.position.y, targetSitY, delta * 5
+    )
+
     updatePosition(agent.id, posRef.current, angleRef.current)
 
     // --- POSE ANIMATIONS ---
-    if (!bodyRef.current || !headRef.current || !leftArmRef.current || !rightArmRef.current || !leftLegRef.current || !rightLegRef.current) return
+    if (!bodyRef.current || !headRef.current || !leftArmRef.current || !rightArmRef.current ||
+        !leftUpperLegRef.current || !rightUpperLegRef.current ||
+        !leftLowerLegRef.current || !rightLowerLegRef.current) return
 
     const body = bodyRef.current
     const head = headRef.current
     const la = leftArmRef.current
     const ra = rightArmRef.current
-    const ll = leftLegRef.current
-    const rl = rightLegRef.current
+    const lul = leftUpperLegRef.current
+    const rul = rightUpperLegRef.current
+    const lll = leftLowerLegRef.current
+    const rll = rightLowerLegRef.current
 
     body.rotation.set(0, 0, 0)
     head.rotation.set(0, 0, 0)
@@ -103,14 +117,17 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
     if (agentState === 'working') {
       body.position.y = 0.3 + Math.sin(t.current * 1.8) * 0.004
       body.rotation.x = 0.05
-      la.rotation.x = THREE.MathUtils.lerp(la.rotation.x, -1.2, delta * 3)
-      ra.rotation.x = THREE.MathUtils.lerp(ra.rotation.x, -1.2 + Math.sin(t.current * 6) * 0.08, delta * 3)
+      // Arms reaching to keyboard
+      la.rotation.x = THREE.MathUtils.lerp(la.rotation.x, -1.2 + Math.sin(t.current * 8) * 0.06, delta * 3)
+      ra.rotation.x = THREE.MathUtils.lerp(ra.rotation.x, -1.2 + Math.sin(t.current * 8 + Math.PI) * 0.06, delta * 3)
       la.rotation.z = THREE.MathUtils.lerp(la.rotation.z, 0.2, delta * 3)
       ra.rotation.z = THREE.MathUtils.lerp(ra.rotation.z, -0.2, delta * 3)
-      ll.rotation.x = THREE.MathUtils.lerp(ll.rotation.x, -Math.PI / 2.2, delta * 4)
-      rl.rotation.x = THREE.MathUtils.lerp(rl.rotation.x, -Math.PI / 2.2, delta * 4)
-      const lookCycle = Math.sin(t.current * 0.15) * 0.25
-      head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, lookCycle, delta * 0.8)
+      // Sitting: hip forward (-90°), knee bent back (+90°)
+      lul.rotation.x = THREE.MathUtils.lerp(lul.rotation.x, -Math.PI / 2, delta * 4)
+      rul.rotation.x = THREE.MathUtils.lerp(rul.rotation.x, -Math.PI / 2, delta * 4)
+      lll.rotation.x = THREE.MathUtils.lerp(lll.rotation.x, Math.PI / 2, delta * 4)
+      rll.rotation.x = THREE.MathUtils.lerp(rll.rotation.x, Math.PI / 2, delta * 4)
+      head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, Math.sin(t.current * 0.15) * 0.25, delta * 0.8)
       head.rotation.x = 0.08
 
     } else if (agentState === 'thinking') {
@@ -122,15 +139,19 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
       ra.rotation.z = THREE.MathUtils.lerp(ra.rotation.z, -0.1, delta * 3)
       head.rotation.z = Math.sin(t.current * 0.4) * 0.14
       head.rotation.y = Math.sin(t.current * 0.2) * 0.2
-      ll.rotation.x = THREE.MathUtils.lerp(ll.rotation.x, -Math.PI / 2.2, delta * 4)
-      rl.rotation.x = THREE.MathUtils.lerp(rl.rotation.x, -Math.PI / 2.2, delta * 4)
+      lul.rotation.x = THREE.MathUtils.lerp(lul.rotation.x, -Math.PI / 2, delta * 4)
+      rul.rotation.x = THREE.MathUtils.lerp(rul.rotation.x, -Math.PI / 2, delta * 4)
+      lll.rotation.x = THREE.MathUtils.lerp(lll.rotation.x, Math.PI / 2, delta * 4)
+      rll.rotation.x = THREE.MathUtils.lerp(rll.rotation.x, Math.PI / 2, delta * 4)
 
     } else if (agentState === 'walking') {
       body.position.y = 0.3 + Math.abs(Math.sin(t.current * 9)) * 0.03
       body.rotation.x = 0.1
       const stride = Math.sin(t.current * 8) * 0.7
-      ll.rotation.x = THREE.MathUtils.lerp(ll.rotation.x, stride, delta * 12)
-      rl.rotation.x = THREE.MathUtils.lerp(rl.rotation.x, -stride, delta * 12)
+      lul.rotation.x = THREE.MathUtils.lerp(lul.rotation.x, stride, delta * 12)
+      rul.rotation.x = THREE.MathUtils.lerp(rul.rotation.x, -stride, delta * 12)
+      lll.rotation.x = THREE.MathUtils.lerp(lll.rotation.x, 0, delta * 8)
+      rll.rotation.x = THREE.MathUtils.lerp(rll.rotation.x, 0, delta * 8)
       la.rotation.x = THREE.MathUtils.lerp(la.rotation.x, -stride * 0.5, delta * 12)
       ra.rotation.x = THREE.MathUtils.lerp(ra.rotation.x, stride * 0.5, delta * 12)
       la.rotation.z = THREE.MathUtils.lerp(la.rotation.z, 0.1, delta * 5)
@@ -143,15 +164,19 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
       ra.rotation.z = THREE.MathUtils.lerp(ra.rotation.z, -0.3, delta * 3)
       la.rotation.x = THREE.MathUtils.lerp(la.rotation.x, -0.3, delta * 3)
       la.rotation.z = THREE.MathUtils.lerp(la.rotation.z, 0.1, delta * 3)
-      ll.rotation.x = THREE.MathUtils.lerp(ll.rotation.x, 0, delta * 4)
-      rl.rotation.x = THREE.MathUtils.lerp(rl.rotation.x, 0, delta * 4)
+      lul.rotation.x = THREE.MathUtils.lerp(lul.rotation.x, 0, delta * 4)
+      rul.rotation.x = THREE.MathUtils.lerp(rul.rotation.x, 0, delta * 4)
+      lll.rotation.x = THREE.MathUtils.lerp(lll.rotation.x, 0, delta * 4)
+      rll.rotation.x = THREE.MathUtils.lerp(rll.rotation.x, 0, delta * 4)
       head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, 0.3, delta * 2)
 
     } else if (agentState === 'meeting') {
       body.position.y = 0.3
       body.rotation.x = 0.04
-      ll.rotation.x = THREE.MathUtils.lerp(ll.rotation.x, -Math.PI / 2.2, delta * 4)
-      rl.rotation.x = THREE.MathUtils.lerp(rl.rotation.x, -Math.PI / 2.2, delta * 4)
+      lul.rotation.x = THREE.MathUtils.lerp(lul.rotation.x, -Math.PI / 2.2, delta * 4)
+      rul.rotation.x = THREE.MathUtils.lerp(rul.rotation.x, -Math.PI / 2.2, delta * 4)
+      lll.rotation.x = THREE.MathUtils.lerp(lll.rotation.x, Math.PI / 2.2, delta * 4)
+      rll.rotation.x = THREE.MathUtils.lerp(rll.rotation.x, Math.PI / 2.2, delta * 4)
       if (Math.sin(t.current * 0.3) > 0.5) {
         ra.rotation.x = THREE.MathUtils.lerp(ra.rotation.x, -0.6 + Math.sin(t.current * 2) * 0.2, delta * 3)
         head.rotation.x = Math.sin(t.current * 1.5) * 0.08
@@ -176,17 +201,16 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
         }
       }
       head.rotation.y = Math.sin(t.current * 0.3) * 0.3
-      ll.rotation.x = THREE.MathUtils.lerp(ll.rotation.x, 0, delta * 3)
-      rl.rotation.x = THREE.MathUtils.lerp(rl.rotation.x, 0, delta * 3)
+      lul.rotation.x = THREE.MathUtils.lerp(lul.rotation.x, 0, delta * 3)
+      rul.rotation.x = THREE.MathUtils.lerp(rul.rotation.x, 0, delta * 3)
+      lll.rotation.x = THREE.MathUtils.lerp(lll.rotation.x, 0, delta * 3)
+      rll.rotation.x = THREE.MathUtils.lerp(rll.rotation.x, 0, delta * 3)
     }
   })
 
   return (
-    <group
-      ref={groupRef}
-      position={agent.deskPos}
-    >
-      {/* Invisible touch/click hitbox */}
+    <group ref={groupRef} position={agent.deskPos}>
+      {/* Invisible hitbox — larger for easy clicking/tapping */}
       <mesh
         visible={false}
         onClick={(e) => { e.stopPropagation(); setSelected(isSelected ? null : agent.id) }}
@@ -197,7 +221,7 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
-      {/* Body group */}
+      {/* Body (torso) — pivot at hip center */}
       <group ref={bodyRef} position={[0, 0.3, 0]}>
         <mesh castShadow>
           <boxGeometry args={[0.5, 0.6, 0.3]} />
@@ -205,7 +229,7 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
         </mesh>
       </group>
 
-      {/* Head */}
+      {/* Head — pivot at neck */}
       <group ref={headRef} position={[0, 0.95, 0]}>
         <mesh castShadow>
           <boxGeometry args={[0.4, 0.4, 0.4]} />
@@ -214,7 +238,7 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
         {/* Hair */}
         <mesh position={[0, 0.22, 0]}>
           <boxGeometry args={[0.42, 0.1, 0.42]} />
-          <meshStandardMaterial color={hairColor} roughness={0.9} />
+          <meshStandardMaterial color={agent.color} roughness={0.9} />
         </mesh>
         {/* Eyes */}
         <mesh position={[-0.09, 0.04, -0.21]}>
@@ -227,7 +251,7 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
         </mesh>
       </group>
 
-      {/* Left arm (pivot at shoulder) */}
+      {/* Left arm — pivot at shoulder */}
       <group ref={leftArmRef} position={[-0.33, 0.82, 0]}>
         <mesh castShadow position={[0, -0.25, 0]}>
           <boxGeometry args={[0.15, 0.5, 0.15]} />
@@ -235,7 +259,7 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
         </mesh>
       </group>
 
-      {/* Right arm (pivot at shoulder) */}
+      {/* Right arm — pivot at shoulder */}
       <group ref={rightArmRef} position={[0.33, 0.82, 0]}>
         <mesh castShadow position={[0, -0.25, 0]}>
           <boxGeometry args={[0.15, 0.5, 0.15]} />
@@ -243,23 +267,37 @@ export default function AgentCharacter({ agent, isMobile }: Props) {
         </mesh>
       </group>
 
-      {/* Left leg (pivot at hip) */}
-      <group ref={leftLegRef} position={[-0.14, 0.1, 0]}>
-        <mesh castShadow position={[0, -0.25, 0]}>
-          <boxGeometry args={[0.15, 0.5, 0.15]} />
-          <meshStandardMaterial color="#1e2d4a" roughness={0.7} />
+      {/* Left upper leg — pivot at hip */}
+      <group ref={leftUpperLegRef} position={[-0.14, 0, 0]}>
+        <mesh castShadow position={[0, -0.175, 0]}>
+          <boxGeometry args={[0.15, 0.35, 0.15]} />
+          <meshStandardMaterial color={agent.color} roughness={0.7} />
         </mesh>
+        {/* Left lower leg — pivot at knee */}
+        <group ref={leftLowerLegRef} position={[0, -0.35, 0]}>
+          <mesh castShadow position={[0, -0.175, 0]}>
+            <boxGeometry args={[0.14, 0.35, 0.14]} />
+            <meshStandardMaterial color="#1e2d4a" roughness={0.7} />
+          </mesh>
+        </group>
       </group>
 
-      {/* Right leg (pivot at hip) */}
-      <group ref={rightLegRef} position={[0.14, 0.1, 0]}>
-        <mesh castShadow position={[0, -0.25, 0]}>
-          <boxGeometry args={[0.15, 0.5, 0.15]} />
-          <meshStandardMaterial color="#1e2d4a" roughness={0.7} />
+      {/* Right upper leg — pivot at hip */}
+      <group ref={rightUpperLegRef} position={[0.14, 0, 0]}>
+        <mesh castShadow position={[0, -0.175, 0]}>
+          <boxGeometry args={[0.15, 0.35, 0.15]} />
+          <meshStandardMaterial color={agent.color} roughness={0.7} />
         </mesh>
+        {/* Right lower leg — pivot at knee */}
+        <group ref={rightLowerLegRef} position={[0, -0.35, 0]}>
+          <mesh castShadow position={[0, -0.175, 0]}>
+            <boxGeometry args={[0.14, 0.35, 0.14]} />
+            <meshStandardMaterial color="#1e2d4a" roughness={0.7} />
+          </mesh>
+        </group>
       </group>
 
-      {/* Selection ring */}
+      {/* Selection / hover ring */}
       {(isHovered || isSelected) && (
         <SelectionRingMesh agent={agent} isSelected={isSelected} />
       )}
@@ -304,7 +342,7 @@ function SelectionRingMesh({ agent, isSelected }: { agent: Agent; isSelected: bo
       : 0.25
   })
   return (
-    <mesh ref={ref} position={[0, -0.28, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+    <mesh ref={ref} position={[0, -0.44, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       <ringGeometry args={[0.4, 0.6, 32]} />
       <meshBasicMaterial color={agent.color} transparent opacity={0.25} />
     </mesh>
