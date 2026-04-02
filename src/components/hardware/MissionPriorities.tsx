@@ -27,10 +27,32 @@ export default function MissionPriorities({ priorities, onUpdate }: MissionPrior
         MISSION
       </div>
       {priorities.map((p) => (
-        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div
+          key={p.id}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            transition: 'filter 0.15s',
+            cursor: 'default',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.filter = 'brightness(1.2)' }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.filter = 'brightness(1)' }}
+        >
           {/* Tag badge */}
           {p.tag && (
-            <div style={{ fontSize: 9, fontWeight: 700, color: p.color, background: p.color + '18', border: `1px solid ${p.color}30`, borderRadius: 2, padding: '1px 4px', flexShrink: 0 }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: p.color,
+                background: p.color + '25',
+                border: `1px solid ${p.color}40`,
+                borderRadius: 3,
+                padding: '1px 5px',
+                flexShrink: 0,
+              }}
+            >
               {p.tag}
             </div>
           )}
@@ -39,7 +61,7 @@ export default function MissionPriorities({ priorities, onUpdate }: MissionPrior
             {p.label}
           </div>
           {/* Progress bar */}
-          <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden', minWidth: 30 }}>
+          <div style={{ flex: 1, height: 4, background: '#1E293B', borderRadius: 2, overflow: 'hidden', minWidth: 30 }}>
             <div style={{ height: '100%', width: `${p.progress}%`, background: p.color, borderRadius: 2, transition: 'width 0.5s ease' }} />
           </div>
           {/* Percentage — click to edit */}

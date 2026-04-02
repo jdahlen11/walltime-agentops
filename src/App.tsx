@@ -5,11 +5,9 @@ import { useAgentStatus } from './hooks/useAgentStatus'
 import { useCronLog } from './hooks/useCronLog'
 import { fetchDispatchLog } from './lib/supabase'
 
-import Header from './components/layout/Header'
-import LeftPanel from './components/layout/LeftPanel'
-import RightPanel from './components/layout/RightPanel'
-import BottomBar from './components/layout/BottomBar'
-import ThreeOffice from './components/office/ThreeOffice'
+import DesktopLayout from './components/layout/DesktopLayout'
+import MobileLayout from './components/layout/MobileLayout'
+import ToastProvider from './components/ui/Toast'
 
 export default function App() {
   const [selectedAgentId, setSelectedAgentId] = useState<AgentId | null>(null)
@@ -17,20 +15,24 @@ export default function App() {
   const { rows: agentStatuses } = useAgentStatus()
   const { rows: cronLogs } = useCronLog()
 
+  // Responsive detection
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 1024)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+
   useEffect(() => {
     fetchDispatchLog(undefined, 50).then(setDispatchLogs)
   }, [])
 
   // Merge static definitions with live Supabase status
-  // Real schema: agent_id is the identifier (not 'id')
   const agents: AgentView[] = useMemo(() => {
     return AGENTS.map((def) => {
       const live = agentStatuses.find((r) => r.agent_id === def.id)
       const agentCrons = cronLogs.filter((r) => r.agent_id === def.id).slice(0, 5)
-      // dispatch table uses 'to_agent' for the agent identifier
       const agentDispatches = dispatchLogs.filter((r) => r.to_agent === def.id).slice(0, 5)
-
-      // Derive current task from most recent cron output_preview
       const latestCron = agentCrons[0]
       const currentTask = latestCron?.output_preview ?? null
 
@@ -38,8 +40,8 @@ export default function App() {
         ...def,
         status: live?.status ?? 'idle',
         currentTask,
-        currentTopic: null,             // not in real schema — derived if needed
-        model: 'grok-4-1-fast',         // not stored in real schema
+        currentTopic: null,
+        model: 'grok-4-1-fast',
         tokensUsed: live?.token_count_session ?? 0,
         lastActionAt: live?.last_action ?? null,
         recentCrons: agentCrons,
@@ -73,28 +75,22 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
-      <Header agents={agents} />
-
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <LeftPanel
+      {isMobile ? (
+        <MobileLayout
           agents={agents}
           selectedAgentId={selectedAgentId}
+          selectedAgent={selectedAgent}
           onSelectAgent={handleSelectAgent}
         />
-
-        <ThreeOffice
+      ) : (
+        <DesktopLayout
           agents={agents}
-          selectedId={selectedAgentId}
-          onSelect={handleSelectAgent}
-        />
-
-        <RightPanel
+          selectedAgentId={selectedAgentId}
           selectedAgent={selectedAgent}
-          onDeselect={() => setSelectedAgentId(null)}
+          onSelectAgent={handleSelectAgent}
         />
-      </div>
-
-      <BottomBar selectedAgentId={selectedAgentId} />
+      )}
+      <ToastProvider agents={agents} isMobile={isMobile} />
     </div>
   )
 }

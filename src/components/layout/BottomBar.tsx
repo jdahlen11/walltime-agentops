@@ -16,7 +16,7 @@ export default function BottomBar({ selectedAgentId }: BottomBarProps) {
   return (
     <div
       style={{
-        height: 84,
+        height: 110,
         flexShrink: 0,
         background: 'rgba(8,12,20,0.95)',
         borderTop: '1px solid rgba(255,255,255,0.07)',
@@ -43,9 +43,9 @@ export default function BottomBar({ selectedAgentId }: BottomBarProps) {
         style={{
           flex: 1,
           borderRight: '1px solid rgba(255,255,255,0.06)',
-          padding: '10px 16px',
+          padding: '8px 16px',
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           overflow: 'hidden',
         }}
       >
@@ -57,7 +57,7 @@ export default function BottomBar({ selectedAgentId }: BottomBarProps) {
         style={{
           width: 420,
           flexShrink: 0,
-          padding: '10px 12px',
+          padding: '8px 12px',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

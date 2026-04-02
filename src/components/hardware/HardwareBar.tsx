@@ -6,16 +6,24 @@ interface HardwareBarProps {
   loading: boolean
 }
 
+function progressColor(pct: number): string {
+  if (pct > 85) return '#EF4444'
+  if (pct > 60) return '#F59E0B'
+  return '#10B981'
+}
+
 export default function HardwareBar({ snapshot, loading }: HardwareBarProps) {
-  const { rtx, macmini, rtxStale, macminiStale } = snapshot
+  const { rtx, macmini, rtxStale, macminiStale, lastUpdated } = snapshot
+
+  const dataFresh = lastUpdated
+    ? Date.now() - new Date(lastUpdated).getTime() < 60_000
+    : false
 
   if (!SUPABASE_CONFIGURED) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)' }}>
-          HARDWARE
-        </div>
-        <div style={{ fontSize: 11, color: '#F59E0B' }}>Configure Supabase — add VITE_SUPABASE_ANON_KEY to .env.local</div>
+        <HardwareHeader fresh={false} />
+        <div style={{ fontSize: 11, color: '#F59E0B' }}>Configure Supabase</div>
       </div>
     )
   }
@@ -23,60 +31,72 @@ export default function HardwareBar({ snapshot, loading }: HardwareBarProps) {
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)' }}>HARDWARE</div>
+        <HardwareHeader fresh={false} />
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>Connecting...</div>
       </div>
     )
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', flexShrink: 0 }}>
-        HARDWARE
-      </div>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', width: '100%' }}>
+      <HardwareHeader fresh={dataFresh} />
 
-      {/* RTX — real columns: gpu_load_pct, gpu_temp_c, vram_used_gb, vram_total_gb, tok_per_sec, active_model */}
+      {/* RTX 5090 card */}
       {rtx ? (
-        <>
-          <MetricGroup label="RTX" stale={rtxStale}>
-            {rtx.gpu_load_pct != null && <Metric label="GPU" value={`${rtx.gpu_load_pct}%`} warn={rtx.gpu_load_pct > 85} />}
-            {rtx.gpu_temp_c != null && <Metric label="°C" value={String(rtx.gpu_temp_c)} warn={rtx.gpu_temp_c > 80} />}
-            {rtx.vram_used_gb != null && rtx.vram_total_gb != null && (
-              <Metric label="VRAM" value={`${rtx.vram_used_gb.toFixed(1)}/${rtx.vram_total_gb}GB`} warn={rtx.vram_used_gb / rtx.vram_total_gb > 0.9} />
-            )}
-            {rtx.tok_per_sec != null && <Metric label="tok/s" value={rtx.tok_per_sec.toFixed(1)} ok={rtx.tok_per_sec > 30} />}
-            {rtx.active_model && <Metric label="" value={rtx.active_model} />}
-          </MetricGroup>
-          <Divider />
-        </>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: rtxStale ? '#F59E0B' : 'rgba(255,255,255,0.6)' }}>
+              RTX 5090 {rtxStale && '⚠'}
+            </span>
+          </div>
+          {rtx.gpu_load_pct != null && (
+            <ProgressRow label="GPU" value={`${rtx.gpu_load_pct}%`} pct={rtx.gpu_load_pct} suffix={rtx.gpu_temp_c != null ? `${rtx.gpu_temp_c}°C` : undefined} />
+          )}
+          {rtx.vram_used_gb != null && rtx.vram_total_gb != null && (
+            <ProgressRow label="VRAM" value={`${rtx.vram_used_gb.toFixed(1)}/${rtx.vram_total_gb}GB`} pct={(rtx.vram_used_gb / rtx.vram_total_gb) * 100} />
+          )}
+          {rtx.active_model && (
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>
+              {rtx.active_model} {rtx.tok_per_sec != null && <span style={{ color: '#10B981' }}>{rtx.tok_per_sec.toFixed(1)} tok/s</span>}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <ServiceDot label="Ollama" status={rtx.ollama_status} />
+            <ServiceDot label="LiteLLM" status={rtx.litellm_status} />
+          </div>
+        </div>
       ) : (
         <NoData label="RTX" />
       )}
 
-      {/* Mac Mini — real columns: cpu_load_pct, mem_used_gb, mem_total_gb, gateway_status, ollama_status, tailscale_connected */}
+      <Divider />
+
+      {/* Mac Mini M4 card */}
       {macmini ? (
-        <MetricGroup label="MAC" stale={macminiStale}>
-          {macmini.cpu_load_pct != null && <Metric label="CPU" value={`${macmini.cpu_load_pct}%`} warn={macmini.cpu_load_pct > 85} />}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: macminiStale ? '#F59E0B' : 'rgba(255,255,255,0.6)' }}>
+              Mac Mini M4 {macminiStale && '⚠'}
+            </span>
+          </div>
+          {macmini.cpu_load_pct != null && (
+            <ProgressRow label="CPU" value={`${macmini.cpu_load_pct}%`} pct={macmini.cpu_load_pct} />
+          )}
           {macmini.mem_used_gb != null && macmini.mem_total_gb != null && (
-            <Metric label="MEM" value={`${macmini.mem_used_gb.toFixed(0)}/${macmini.mem_total_gb}GB`} />
+            <ProgressRow label="MEM" value={`${macmini.mem_used_gb.toFixed(1)}/${macmini.mem_total_gb}GB`} pct={(macmini.mem_used_gb / macmini.mem_total_gb) * 100} />
           )}
-          {macmini.gateway_status != null && (
-            <Metric label="GW" value={macmini.gateway_status === 'online' ? '●' : '○'}
-              ok={macmini.gateway_status === 'online'} warn={macmini.gateway_status !== 'online'} />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <ServiceDot label="GW" status={macmini.gateway_status} />
+            <ServiceDot label="VPN" status={macmini.tailscale_connected ? 'online' : macmini.tailscale_connected === false ? 'offline' : null} />
+            <ServiceDot label="n8n" status={macmini.n8n_status} />
+            <ServiceDot label="Ollama" status={macmini.ollama_status} />
+          </div>
+          {macmini.cross_machine_ping_ms != null && (
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+              Ping: {macmini.cross_machine_ping_ms}ms
+            </div>
           )}
-          {macmini.ollama_status != null && (
-            <Metric label="OLLAMA" value={macmini.ollama_status === 'online' ? '●' : '○'}
-              ok={macmini.ollama_status === 'online'} warn={macmini.ollama_status !== 'online'} />
-          )}
-          {macmini.tailscale_connected != null && (
-            <Metric label="VPN" value={macmini.tailscale_connected ? '●' : '○'}
-              ok={macmini.tailscale_connected} warn={!macmini.tailscale_connected} />
-          )}
-          {macmini.n8n_status != null && (
-            <Metric label="n8n" value={macmini.n8n_status === 'online' ? '●' : '○'}
-              ok={macmini.n8n_status === 'online'} warn={macmini.n8n_status !== 'online'} />
-          )}
-        </MetricGroup>
+        </div>
       ) : (
         <NoData label="Mac Mini" />
       )}
@@ -84,29 +104,53 @@ export default function HardwareBar({ snapshot, loading }: HardwareBarProps) {
   )
 }
 
-function MetricGroup({ label, stale, children }: { label: string; stale: boolean; children: React.ReactNode }) {
+function HardwareHeader({ fresh }: { fresh: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ fontSize: 10, fontWeight: 600, color: stale ? '#F59E0B' : 'rgba(255,255,255,0.3)', letterSpacing: '0.08em' }}>
-        {label}{stale ? ' ⚠' : ''}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)' }}>
+        HARDWARE
       </span>
-      {children}
+      {fresh && (
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', animation: 'pulse-dot 2s infinite' }} />
+      )}
     </div>
   )
 }
 
-function Metric({ label, value, warn, ok }: { label: string; value: string; warn?: boolean; ok?: boolean }) {
-  const color = warn ? '#F59E0B' : ok ? '#10B981' : 'rgba(255,255,255,0.65)'
+function ProgressRow({ label, value, pct, suffix }: { label: string; value: string; pct: number; suffix?: string }) {
   return (
-    <span style={{ fontSize: 12, color, display: 'flex', alignItems: 'center', gap: 3 }}>
-      {label && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{label}</span>}
-      <span style={{ fontWeight: 600 }}>{value}</span>
-    </span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', width: 32, flexShrink: 0 }}>{label}</span>
+      <div style={{ flex: 1, height: 4, background: '#1E293B', borderRadius: 2, overflow: 'hidden', minWidth: 40 }}>
+        <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: progressColor(pct), borderRadius: 2, transition: 'width 0.5s' }} />
+      </div>
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 600, flexShrink: 0 }}>{value}</span>
+      {suffix && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{suffix}</span>}
+    </div>
+  )
+}
+
+function ServiceDot({ label, status }: { label: string; status: string | null }) {
+  const isOnline = status === 'online'
+  const color = status == null ? '#475569' : isOnline ? '#10B981' : '#EF4444'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+      <div
+        style={{
+          width: 5,
+          height: 5,
+          borderRadius: '50%',
+          background: color,
+          animation: isOnline ? 'pulse-dot 3s infinite' : 'none',
+        }}
+      />
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{label}</span>
+    </div>
   )
 }
 
 function Divider() {
-  return <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
+  return <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
 }
 
 function NoData({ label }: { label: string }) {

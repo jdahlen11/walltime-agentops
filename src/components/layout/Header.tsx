@@ -6,11 +6,54 @@ import { GITHUB_CONFIGURED } from '../../lib/github'
 
 interface HeaderProps {
   agents: AgentView[]
+  isMobile: boolean
 }
 
-export default function Header({ agents }: HeaderProps) {
-  const online = agents.filter((a) => a.status === 'active' || a.status === 'processing').length
-  const allConfigured = SUPABASE_CONFIGURED && TELEGRAM_CONFIGURED && GITHUB_CONFIGURED
+export default function Header({ agents, isMobile }: HeaderProps) {
+  const working = agents.filter((a) => a.status === 'active' || a.status === 'processing').length
+  const idle = agents.length - working
+
+  if (isMobile) {
+    return (
+      <header
+        style={{
+          background: 'rgba(10,14,23,0.98)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          padding: '0 12px',
+          height: 44,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.04em' }}>
+          WALLTIME HQ
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+            {agents.map((agent) => (
+              <div
+                key={agent.id}
+                title={`${agent.name}: ${agent.status}`}
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: statusColor(agent.status),
+                  transition: 'all 0.3s',
+                }}
+              />
+            ))}
+          </div>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+            <span style={{ color: '#10B981', fontWeight: 600 }}>{working}</span> working ·{' '}
+            <span style={{ color: 'rgba(255,255,255,0.35)' }}>{idle} idle</span>
+          </span>
+        </div>
+      </header>
+    )
+  }
 
   return (
     <header
@@ -18,7 +61,7 @@ export default function Header({ agents }: HeaderProps) {
         background: 'rgba(10,14,23,0.98)',
         borderBottom: '1px solid rgba(255,255,255,0.08)',
         padding: '0 20px',
-        height: '52px',
+        height: 52,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -52,7 +95,7 @@ export default function Header({ agents }: HeaderProps) {
         </div>
       </div>
 
-      {/* Center — agent status dots */}
+      {/* Center — agent status dots + counts */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {agents.map((agent) => (
@@ -71,8 +114,9 @@ export default function Header({ agents }: HeaderProps) {
           ))}
         </div>
         <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
-          <span style={{ color: '#10B981', fontWeight: 600 }}>{online}</span>
-          <span style={{ color: 'rgba(255,255,255,0.35)' }}> / {agents.length} ONLINE</span>
+          <span style={{ color: '#10B981', fontWeight: 600 }}>{working}</span>
+          <span style={{ color: 'rgba(255,255,255,0.35)' }}> working · </span>
+          <span style={{ color: 'rgba(255,255,255,0.35)' }}>{idle} idle</span>
         </div>
       </div>
 
@@ -81,20 +125,6 @@ export default function Header({ agents }: HeaderProps) {
         <ConnectionBadge label="SUPABASE" ok={SUPABASE_CONFIGURED} />
         <ConnectionBadge label="TELEGRAM" ok={TELEGRAM_CONFIGURED} />
         <ConnectionBadge label="GITHUB" ok={GITHUB_CONFIGURED} />
-        {!allConfigured && (
-          <div
-            style={{
-              fontSize: 11,
-              color: '#F59E0B',
-              background: 'rgba(245,158,11,0.12)',
-              border: '1px solid rgba(245,158,11,0.3)',
-              borderRadius: 4,
-              padding: '2px 8px',
-            }}
-          >
-            Configure .env.local
-          </div>
-        )}
       </div>
     </header>
   )
@@ -111,7 +141,14 @@ function ConnectionBadge({ label, ok }: { label: string; ok: boolean }) {
         color: ok ? '#10B981' : 'rgba(255,255,255,0.3)',
       }}
     >
-      {ok ? <Wifi size={12} /> : <WifiOff size={12} />}
+      <div
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: ok ? '#10B981' : '#EF4444',
+        }}
+      />
       {label}
     </div>
   )

@@ -14,11 +14,11 @@ html, body, #root {
   background: #0A0E17;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+/* Thin dark scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #334155; }
 
 /* Animations */
 @keyframes pulse {
@@ -34,6 +34,30 @@ html, body, #root {
 @keyframes float {
   0% { transform: translate(-50%, -50%) translateY(0px); opacity: 0.6; }
   100% { transform: translate(-50%, -50%) translateY(-12px); opacity: 0; }
+}
+
+/* Status dot pulse keyframes */
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.7; }
+}
+
+/* Active status dot — green, 2s cycle */
+.pulse-dot-active {
+  animation: pulse-dot-active 2s ease-in-out infinite;
+}
+@keyframes pulse-dot-active {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.4); }
+}
+
+/* Error status dot — red, fast 0.8s cycle */
+.pulse-dot-error {
+  animation: pulse-dot-error 0.8s ease-in-out infinite;
+}
+@keyframes pulse-dot-error {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.4); }
 }
 
 /* Spin for loaders (no translate) */
@@ -67,4 +91,9 @@ button {
 input, textarea, select {
   font-family: inherit;
   color-scheme: dark;
+}
+
+/* Samsung S26 Ultra safe areas for bottom tabs */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 }

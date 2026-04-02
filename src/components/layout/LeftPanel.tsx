@@ -6,7 +6,7 @@ import { SUPABASE_CONFIGURED } from '../../lib/supabase'
 interface LeftPanelProps {
   agents: AgentView[]
   selectedAgentId: AgentId | null
-  onSelectAgent: (id: AgentId) => void
+  onSelectAgent: (id: AgentId | null) => void
 }
 
 export default function LeftPanel({ agents, selectedAgentId, onSelectAgent }: LeftPanelProps) {

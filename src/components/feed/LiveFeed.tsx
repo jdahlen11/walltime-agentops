@@ -1,4 +1,3 @@
-import { useRef, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { FeedMessage, AgentId } from '../../lib/types'
 import { useTelegramFeed } from '../../hooks/useTelegramFeed'
@@ -15,44 +14,46 @@ export default function LiveFeed({ onSelectMessage, filterAgentId }: LiveFeedPro
     ? messages.filter((m) => m.agentId === filterAgentId)
     : messages
 
+  const display = filtered.slice(0, 15)
+
   return (
     <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexShrink: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)' }}>
-          LIVE FEED
-        </div>
         {!configured ? (
-          <span style={{ fontSize: 11, color: '#F59E0B' }}>• Configure VITE_TELEGRAM_BOT_TOKEN</span>
+          <span style={{ fontSize: 11, color: '#F59E0B' }}>FEED · Configure bot token</span>
         ) : error ? (
-          <span style={{ fontSize: 11, color: '#EF4444' }}>• {error}</span>
+          <span style={{ fontSize: 11, color: '#EF4444' }}>FEED · {error}</span>
         ) : loading ? (
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>• Connecting...</span>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>FEED · Connecting...</span>
         ) : (
-          <span style={{ fontSize: 11, color: '#10B981' }}>• Live ({filtered.length})</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)' }}>
+              LIVE ({display.length})
+            </span>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', animation: 'pulse-dot 2s infinite' }} />
+          </div>
         )}
       </div>
 
-      {/* Ticker */}
+      {/* Vertical scrollable list */}
       <div
         style={{
           flex: 1,
-          overflowX: 'auto',
-          overflowY: 'hidden',
+          overflowY: 'auto',
           display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          paddingBottom: 2,
+          flexDirection: 'column',
+          gap: 4,
         }}
       >
-        {filtered.length === 0 ? (
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>
-            {!configured ? 'Feed offline — check bot token' : 'Awaiting messages...'}
+        {display.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
+            {!configured ? 'Feed offline' : 'Awaiting messages...'}
           </div>
         ) : (
-          <AnimatePresence mode="popLayout">
-            {filtered.slice(0, 20).map((msg) => (
-              <FeedPill key={msg.id} msg={msg} onClick={() => onSelectMessage?.(msg)} />
+          <AnimatePresence initial={false}>
+            {display.map((msg) => (
+              <FeedEntry key={msg.id} msg={msg} onClick={() => onSelectMessage?.(msg)} />
             ))}
           </AnimatePresence>
         )}
@@ -61,60 +62,63 @@ export default function LiveFeed({ onSelectMessage, filterAgentId }: LiveFeedPro
   )
 }
 
-function FeedPill({ msg, onClick }: { msg: FeedMessage; onClick: () => void }) {
+function FeedEntry({ msg, onClick }: { msg: FeedMessage; onClick: () => void }) {
   const agent = AGENTS.find((a) => a.id === msg.agentId)
   const color = agent?.color ?? 'rgba(255,255,255,0.4)'
 
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -10 }}
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
       onClick={onClick}
       style={{
-        flexShrink: 0,
-        padding: '4px 10px',
-        background: 'rgba(255,255,255,0.04)',
-        border: `1px solid rgba(255,255,255,0.07)`,
-        borderLeft: `2px solid ${color}`,
-        borderRadius: 6,
+        padding: '4px 0',
         cursor: 'pointer',
         display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        maxWidth: 280,
-        transition: 'background 0.15s',
+        alignItems: 'flex-start',
+        gap: 6,
+        borderBottom: '1px solid rgba(255,255,255,0.03)',
       }}
     >
-      <span style={{ fontSize: 10, fontWeight: 700, color, whiteSpace: 'nowrap' }}>
-        {agent?.emoji ?? '💬'} {msg.agentName}
-      </span>
-      <span
+      <div
         style={{
-          fontSize: 11,
-          color: 'rgba(255,255,255,0.6)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          flex: 1,
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: color,
+          marginTop: 4,
+          flexShrink: 0,
         }}
-      >
-        {msg.text.slice(0, 60)}
-      </span>
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <span
+          style={{
+            fontSize: 11,
+            color: 'rgba(255,255,255,0.6)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            display: 'block',
+          }}
+        >
+          {msg.text.slice(0, 80)}
+        </span>
+      </div>
       <span
         style={{
-          fontSize: 10,
+          fontSize: 9,
           color: 'rgba(255,255,255,0.25)',
           whiteSpace: 'nowrap',
           background: 'rgba(255,255,255,0.05)',
           borderRadius: 3,
-          padding: '1px 5px',
+          padding: '0px 4px',
+          flexShrink: 0,
         }}
       >
         #{msg.topicName}
       </span>
-      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap' }}>
+      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', whiteSpace: 'nowrap', flexShrink: 0 }}>
         {formatAge(msg.timestamp)}
       </span>
     </motion.div>

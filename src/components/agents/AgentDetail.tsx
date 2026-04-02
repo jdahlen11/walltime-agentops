@@ -13,11 +13,39 @@ interface AgentDetailProps {
 
 type ActionType = 'dispatch' | 'linkedin' | 'email' | 'pr' | 'deploy' | null
 
+// Cron schedule for countdown
+const CRON_SCHEDULES: Record<string, { name: string; hour: number }[]> = {
+  scout: [{ name: 'research', hour: 8 }, { name: 'competitors', hour: 9 }, { name: 'ai-tools-radar', hour: 14 }],
+  engineer: [{ name: 'product-expansion', hour: 15 }],
+  command: [{ name: 'ops-healthcheck', hour: 5 }, { name: 'morning-brief', hour: 6 }, { name: 'task-dispatch', hour: 8 }],
+  capital: [{ name: 'vc-tracking', hour: 10 }],
+  content: [{ name: 'content', hour: 11 }, { name: 'outreach-warmup', hour: 12 }],
+  analyst: [{ name: 'emsa-compliance', hour: 7 }],
+}
+
+function getNextTaskCountdown(agentId: string): string | null {
+  const schedule = CRON_SCHEDULES[agentId]
+  if (!schedule) return null
+  const now = new Date()
+  const pstStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })
+  const pst = new Date(pstStr)
+  const currentHour = pst.getHours()
+  const currentMinute = pst.getMinutes()
+
+  for (const task of schedule) {
+    if (task.hour > currentHour) {
+      const diffMin = (task.hour - currentHour) * 60 - currentMinute
+      const h = Math.floor(diffMin / 60)
+      const m = diffMin % 60
+      return `${task.name} in ${h}h ${m}m`
+    }
+  }
+  return `${schedule[0].name} tomorrow at ${schedule[0].hour}AM PST`
+}
+
 export default function AgentDetail({ agent, onClose }: AgentDetailProps) {
   const [chatText, setChatText] = useState('')
   const [activeModal, setActiveModal] = useState<ActionType>(null)
-  // Use recentCrons from AgentView (loaded in App.tsx) — do NOT call useCronLog here,
-  // it would create a duplicate Supabase channel named 'ops_cron_changes' and crash.
   const cronLogs = agent.recentCrons
   const { dispatch, sending } = useDispatch()
 
@@ -42,6 +70,9 @@ export default function AgentDetail({ agent, onClose }: AgentDetailProps) {
     }
   }
 
+  const latestCron = cronLogs[0]
+  const isActive = agent.status === 'active' || agent.status === 'processing'
+
   return (
     <div
       style={{
@@ -51,7 +82,7 @@ export default function AgentDetail({ agent, onClose }: AgentDetailProps) {
         overflow: 'hidden',
       }}
     >
-      {/* Header */}
+      {/* Header row */}
       <div
         style={{
           padding: '16px 18px',
@@ -62,31 +93,24 @@ export default function AgentDetail({ agent, onClose }: AgentDetailProps) {
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 10,
-                background: agent.color + '25',
-                border: `1px solid ${agent.color}50`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 22,
-                flexShrink: 0,
-              }}
-            >
-              {agent.emoji}
-            </div>
+            <span style={{ fontSize: 40 }}>{agent.emoji}</span>
             <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>{agent.name}</div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{agent.role}</div>
-              <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                <StatusBadge status={agent.status} color={agent.color} />
-                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{agent.model}</span>
-                {agent.tokensUsed > 0 && (
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{formatTokens(agent.tokensUsed)} tokens</span>
-                )}
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>{agent.name}</div>
+              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{agent.role}</div>
+              <div
+                style={{
+                  display: 'inline-block',
+                  marginTop: 6,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: '#fff',
+                  background: statusPillColor(agent.status),
+                  borderRadius: 9999,
+                  padding: '2px 10px',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                {agent.status.toUpperCase()}
               </div>
             </div>
           </div>
@@ -101,79 +125,82 @@ export default function AgentDetail({ agent, onClose }: AgentDetailProps) {
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
 
-        {/* Current task */}
+        {/* Currently Working On card */}
         <Section title="Currently Working On">
-          {agent.currentTask ? (
-            <div
-              style={{
-                padding: '10px 12px',
-                background: `${agent.color}12`,
-                border: `1px solid ${agent.color}30`,
-                borderRadius: 6,
-                fontSize: 13,
-                color: 'rgba(255,255,255,0.8)',
-                lineHeight: 1.5,
-              }}
-            >
-              {agent.currentTask}
-              {agent.currentTopic && (
-                <span style={{ fontSize: 11, color: agent.color, marginLeft: 8 }}>
-                  #{TOPIC_NAMES[agent.currentTopic] ?? agent.currentTopic}
-                </span>
-              )}
-            </div>
-          ) : (
-            <EmptyState text={agent.status === 'idle' ? 'Agent is idle' : 'Awaiting data from Supabase'} />
-          )}
-        </Section>
-
-        {/* Actions */}
-        <Section title="Actions">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <ActionButton label="Dispatch Task" color={agent.color} onClick={() => setActiveModal('dispatch')} />
-            <ActionButton label="Draft LinkedIn Post" color="#EC4899" onClick={() => setActiveModal('linkedin')} />
-            <ActionButton label="Draft Email" color="#F59E0B" onClick={() => setActiveModal('email')} />
-            <ActionButton label="Create PR" color="#10B981" onClick={() => setActiveModal('pr')} />
-            <ActionButton label="Approve & Deploy" color="#8B5CF6" onClick={() => setActiveModal('deploy')} />
+          <div
+            style={{
+              padding: '12px 16px',
+              background: '#141A22',
+              borderRadius: 8,
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            {isActive && latestCron ? (
+              <>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+                  Running: {latestCron.job_name}
+                </div>
+                {latestCron.telegram_topic_id && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      background: agent.color + '20',
+                      color: agent.color,
+                      borderRadius: 4,
+                      padding: '1px 6px',
+                      marginTop: 4,
+                      display: 'inline-block',
+                    }}
+                  >
+                    {TOPIC_NAMES[latestCron.telegram_topic_id] ?? `Topic ${latestCron.telegram_topic_id}`}
+                  </span>
+                )}
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+                  Started {formatTimeSince(latestCron.executed_at)}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Standing by</div>
+                {(() => {
+                  const next = getNextTaskCountdown(agent.id)
+                  return next ? (
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
+                      Next: {next}
+                    </div>
+                  ) : null
+                })()}
+              </>
+            )}
           </div>
         </Section>
 
-        {/* Live output */}
-        <Section title="Recent Output">
-          <AgentOutput cronLogs={cronLogs} dispatches={agent.pendingDispatches} />
+        {/* Actions row */}
+        <Section title="Actions">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <ActionButton label="Dispatch Task" color={agent.color} filled onClick={() => setActiveModal('dispatch')} />
+            <ActionButton label="Draft LinkedIn Post" color={agent.color} onClick={() => setActiveModal('linkedin')} />
+            <ActionButton label="Draft Email" color={agent.color} onClick={() => setActiveModal('email')} />
+            <ActionButton label="Create PR" color={agent.color} onClick={() => setActiveModal('pr')} />
+            <ActionButton label="Approve and Deploy" color={agent.color} onClick={() => setActiveModal('deploy')} />
+          </div>
         </Section>
 
-        {/* Pending queue */}
-        {agent.pendingDispatches.filter(d => d.status !== 'done').length > 0 && (
-          <Section title="Queue">
-            {agent.pendingDispatches.filter(d => d.status !== 'done').map((d) => (
-              <div
-                key={d.id}
-                style={{
-                  padding: '8px 10px',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  borderRadius: 6,
-                  fontSize: 12,
-                  color: 'rgba(255,255,255,0.6)',
-                  marginBottom: 4,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {d.task_description}
-                </span>
-                <span style={{ color: statusColor(d.status), marginLeft: 8, flexShrink: 0, fontSize: 11 }}>
-                  {d.status}
-                </span>
+        {/* Recent Output */}
+        <Section title="Recent Output">
+          <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+            {cronLogs.length === 0 && agent.pendingDispatches.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic', padding: '8px 0' }}>
+                No output yet — daemon polling Telegram every 30s. Agent cron jobs will appear here when they run.
               </div>
-            ))}
-          </Section>
-        )}
+            ) : (
+              <AgentOutput cronLogs={cronLogs} dispatches={agent.pendingDispatches} />
+            )}
+          </div>
+        </Section>
       </div>
 
-      {/* Chat input */}
+      {/* Dispatch input — fixed at bottom */}
       <div
         style={{
           padding: '12px 16px',
@@ -182,25 +209,23 @@ export default function AgentDetail({ agent, onClose }: AgentDetailProps) {
           background: 'rgba(8,12,20,0.9)',
         }}
       >
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-          <textarea
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
             value={chatText}
             onChange={(e) => setChatText(e.target.value)}
-            placeholder={`Message ${agent.name}...`}
-            rows={2}
+            placeholder={`Send task to ${agent.name}...`}
             style={{
               flex: 1,
               background: 'rgba(255,255,255,0.05)',
               border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: 8,
-              padding: '8px 10px',
+              padding: '10px 12px',
               fontSize: 13,
               color: 'rgba(255,255,255,0.85)',
               fontFamily: 'inherit',
-              resize: 'none',
               outline: 'none',
             }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() } }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sendChat() } }}
           />
           <button
             onClick={sendChat}
@@ -220,11 +245,8 @@ export default function AgentDetail({ agent, onClose }: AgentDetailProps) {
               opacity: !chatText.trim() ? 0.5 : 1,
             }}
           >
-            {sending ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />}
+            {sending ? <Loader size={16} className="lucide-loader" /> : <Send size={16} />}
           </button>
-        </div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', marginTop: 4 }}>
-          Enter to send · dispatches via Telegram /dispatch {agent.id}
         </div>
       </div>
 
@@ -259,21 +281,27 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function ActionButton({ label, color, onClick }: { label: string; color: string; onClick: () => void }) {
+function ActionButton({ label, color, filled, onClick }: { label: string; color: string; filled?: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       style={{
-        padding: '7px 12px',
-        background: color + '18',
-        border: `1px solid ${color}40`,
-        borderRadius: 6,
-        color: color,
+        padding: '8px 16px',
+        background: filled ? color : 'transparent',
+        border: `1px solid ${color}4D`,
+        borderRadius: 8,
+        color: filled ? '#fff' : color,
         cursor: 'pointer',
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: 500,
         transition: 'all 0.15s',
         whiteSpace: 'nowrap',
+      }}
+      onMouseEnter={(e) => {
+        if (!filled) (e.target as HTMLButtonElement).style.background = color + '33'
+      }}
+      onMouseLeave={(e) => {
+        if (!filled) (e.target as HTMLButtonElement).style.background = 'transparent'
       }}
     >
       {label}
@@ -281,34 +309,21 @@ function ActionButton({ label, color, onClick }: { label: string; color: string;
   )
 }
 
-function StatusBadge({ status, color }: { status: string; color: string }) {
-  const c = status === 'active' ? color : status === 'processing' ? '#F59E0B' : status === 'error' ? '#EF4444' : 'rgba(255,255,255,0.3)'
-  return (
-    <span style={{ fontSize: 11, fontWeight: 600, color: c, background: c + '18', border: `1px solid ${c}40`, borderRadius: 3, padding: '1px 6px' }}>
-      {status.toUpperCase()}
-    </span>
-  )
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic', padding: '8px 0' }}>{text}</div>
-  )
-}
-
-function statusColor(status: string) {
+function statusPillColor(status: string): string {
   switch (status) {
-    case 'done': return '#10B981'
+    case 'active': return '#10B981'
+    case 'processing': return '#F59E0B'
     case 'error': return '#EF4444'
-    case 'working': return '#F59E0B'
-    default: return 'rgba(255,255,255,0.4)'
+    default: return '#475569'
   }
 }
 
-function formatTokens(n: number) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1000) return `${(n / 1000).toFixed(0)}K`
-  return String(n)
+function formatTimeSince(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const s = Math.floor(diff / 1000)
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  return `${h}h ago`
 }
-
-// Augment AgentView with currentTopic for the detail panel

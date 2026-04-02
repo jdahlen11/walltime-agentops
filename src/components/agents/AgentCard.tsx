@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Clock, Cpu } from 'lucide-react'
+import { Cpu } from 'lucide-react'
 import type { AgentView } from '../../lib/types'
 
 interface AgentCardProps {
@@ -8,17 +8,87 @@ interface AgentCardProps {
   onClick: () => void
 }
 
+// Cron schedule per agent (PST / America-Los_Angeles)
+const CRON_SCHEDULES: Record<string, { name: string; hour: number; minute: number; days?: number[] }[]> = {
+  scout: [
+    { name: 'research', hour: 8, minute: 0 },
+    { name: 'competitors', hour: 9, minute: 0 },
+    { name: 'ai-tools-radar', hour: 14, minute: 0 },
+  ],
+  engineer: [
+    { name: 'product-expansion', hour: 15, minute: 0 },
+  ],
+  command: [
+    { name: 'ops-healthcheck', hour: 5, minute: 0 },
+    { name: 'morning-brief', hour: 6, minute: 0 },
+    { name: 'task-dispatch', hour: 8, minute: 0 },
+    { name: 'task-dispatch', hour: 12, minute: 0 },
+    { name: 'task-dispatch', hour: 16, minute: 0 },
+  ],
+  capital: [
+    { name: 'vc-tracking', hour: 10, minute: 0 },
+    { name: 'fundraise-pipeline', hour: 10, minute: 0, days: [2, 4] }, // Tue, Thu
+  ],
+  content: [
+    { name: 'content', hour: 11, minute: 0 },
+    { name: 'outreach-warmup', hour: 12, minute: 0 },
+  ],
+  analyst: [
+    { name: 'emsa-compliance', hour: 7, minute: 0 },
+  ],
+}
+
+function getNextScheduledTask(agentId: string): string | null {
+  const schedule = CRON_SCHEDULES[agentId]
+  if (!schedule || schedule.length === 0) return null
+
+  // Get current time in PST
+  const now = new Date()
+  const pstStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })
+  const pst = new Date(pstStr)
+  const currentHour = pst.getHours()
+  const currentMinute = pst.getMinutes()
+  const currentDay = pst.getDay() // 0=Sun
+
+  // Find next task today
+  for (const task of schedule) {
+    if (task.days && !task.days.includes(currentDay)) continue
+    if (task.hour > currentHour || (task.hour === currentHour && task.minute > currentMinute)) {
+      const diffMin = (task.hour - currentHour) * 60 + (task.minute - currentMinute)
+      const h = Math.floor(diffMin / 60)
+      const m = diffMin % 60
+      const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`
+      return `Next: ${task.name} in ${timeStr}`
+    }
+  }
+
+  // All today's tasks passed, show tomorrow's first
+  const first = schedule[0]
+  return `Next: ${first.name} · tomorrow ${first.hour}AM`
+}
+
 export default function AgentCard({ agent, selected, onClick }: AgentCardProps) {
-  const timeSince = agent.lastActionAt ? formatTimeSince(agent.lastActionAt) : null
+  // Last activity from recentCrons
+  const lastCron = agent.recentCrons[0]
+  let lastActivity: string | null = null
+  if (lastCron) {
+    const diff = Date.now() - new Date(lastCron.executed_at).getTime()
+    const hours = Math.floor(diff / 3600000)
+    const mins = Math.floor(diff / 60000)
+    const timeStr = hours > 0 ? `${hours}h ago` : `${mins}m ago`
+    lastActivity = `Last: ${lastCron.job_name} · ${timeStr}`
+  }
+
+  const scheduledNext = !lastActivity ? getNextScheduledTask(agent.id) : null
 
   return (
     <motion.div
       layout
       onClick={onClick}
       style={{
-        background: selected ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.025)',
+        background: selected ? '#141A22' : 'rgba(255,255,255,0.025)',
         border: `1px solid ${selected ? agent.color + '60' : 'rgba(255,255,255,0.07)'}`,
-        borderLeft: `3px solid ${agent.color}`,
+        borderLeft: selected ? `3px solid ${agent.color}` : '3px solid transparent',
         borderRadius: 8,
         padding: '12px 14px',
         cursor: 'pointer',
@@ -27,7 +97,7 @@ export default function AgentCard({ agent, selected, onClick }: AgentCardProps) 
       }}
       whileHover={{ background: 'rgba(255,255,255,0.05)' }}
     >
-      {/* Name + status */}
+      {/* Name + status dot */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 18 }}>{agent.emoji}</span>
@@ -40,119 +110,61 @@ export default function AgentCard({ agent, selected, onClick }: AgentCardProps) 
             </div>
           </div>
         </div>
-        <StatusDot status={agent.status} color={agent.color} />
+        <StatusDot status={agent.status} />
       </div>
 
-      {/* Current task */}
-      <div
-        style={{
-          fontSize: 12,
-          color: 'rgba(255,255,255,0.65)',
-          marginBottom: 8,
-          minHeight: 16,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {agent.currentTask ?? (
-          <span style={{ color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>
-            {agent.status === 'idle' ? 'Idle' : 'Awaiting data...'}
-          </span>
+      {/* Status bar */}
+      <div style={{ marginBottom: 6 }}>
+        <div style={{ height: 2, background: agent.color, borderRadius: 1, marginBottom: 3 }} />
+        <div style={{ fontSize: 10, color: agent.color, fontWeight: 600, letterSpacing: '0.06em' }}>
+          {agent.status.toUpperCase()}
+        </div>
+      </div>
+
+      {/* Last activity or next scheduled */}
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginBottom: 6, minHeight: 16 }}>
+        {lastActivity ?? scheduledNext ?? (
+          <span style={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.2)' }}>No recent activity</span>
         )}
       </div>
 
       {/* Meta row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <MetaTag icon={<Cpu size={10} />} text={agent.model} />
+        <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+          {agent.model}
+        </span>
         {agent.tokensUsed > 0 && (
-          <MetaTag text={`${formatTokens(agent.tokensUsed)} tok`} />
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+            {formatTokens(agent.tokensUsed)} tok
+          </span>
         )}
-        {timeSince && (
-          <MetaTag icon={<Clock size={10} />} text={timeSince} />
-        )}
-        <StatusBadge status={agent.status} color={agent.color} />
       </div>
     </motion.div>
   )
 }
 
-function StatusDot({ status, color }: { status: string; color: string }) {
+function StatusDot({ status }: { status: string }) {
+  const color = status === 'active' ? '#10B981'
+    : status === 'error' ? '#EF4444'
+    : status === 'idle' ? '#F59E0B'
+    : '#475569'
+
+  const pulseClass = status === 'active' ? 'pulse-dot-active'
+    : status === 'error' ? 'pulse-dot-error'
+    : ''
+
   return (
     <div
+      className={pulseClass}
       style={{
         width: 10,
         height: 10,
         borderRadius: '50%',
-        background: statusBgColor(status, color),
-        boxShadow: status === 'active' ? `0 0 6px ${color}` : 'none',
+        background: color,
         flexShrink: 0,
-        animation: status === 'active' ? 'pulse 2s infinite' : 'none',
       }}
     />
   )
-}
-
-function StatusBadge({ status, color }: { status: string; color: string }) {
-  const labels: Record<string, string> = {
-    active: 'ACTIVE',
-    processing: 'PROCESSING',
-    idle: 'IDLE',
-    error: 'ERROR',
-  }
-  return (
-    <div
-      style={{
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: '0.08em',
-        color: statusBgColor(status, color),
-        background: statusBgColor(status, color) + '18',
-        border: `1px solid ${statusBgColor(status, color)}40`,
-        borderRadius: 3,
-        padding: '1px 5px',
-        marginLeft: 'auto',
-      }}
-    >
-      {labels[status] ?? status.toUpperCase()}
-    </div>
-  )
-}
-
-function MetaTag({ icon, text }: { icon?: React.ReactNode; text: string }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 3,
-        fontSize: 11,
-        color: 'rgba(255,255,255,0.35)',
-      }}
-    >
-      {icon}
-      {text}
-    </div>
-  )
-}
-
-function statusBgColor(status: string, agentColor: string) {
-  switch (status) {
-    case 'active': return agentColor
-    case 'processing': return '#F59E0B'
-    case 'error': return '#EF4444'
-    default: return 'rgba(255,255,255,0.25)'
-  }
-}
-
-function formatTimeSince(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime()
-  const s = Math.floor(diff / 1000)
-  if (s < 60) return `${s}s ago`
-  const m = Math.floor(s / 60)
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  return `${h}h ago`
 }
 
 function formatTokens(n: number) {
