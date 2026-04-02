@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 * {
@@ -10,48 +11,60 @@ html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #0a0a14;
+  background: #0A0E17;
 }
 
-@font-face {
-  font-family: 'mono';
-  src: local('Courier New');
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
 }
 
-.hud-overlay {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 10;
+@keyframes spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-.flip-digit {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
+@keyframes float {
+  0% { transform: translate(-50%, -50%) translateY(0px); opacity: 0.6; }
+  100% { transform: translate(-50%, -50%) translateY(-12px); opacity: 0; }
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: rgba(255,255,255,0.05);
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.2);
-  border-radius: 2px;
+/* Spin for loaders (no translate) */
+@keyframes loader-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-/* Bottom sheet */
-.bottom-sheet {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  border-radius: 16px 16px 0 0;
-  background: rgba(10, 10, 20, 0.97);
-  border-top: 1px solid rgba(255,255,255,0.15);
-  max-height: 80vh;
-  overflow: hidden;
+/* Apply loader-spin to lucide Loader icons */
+svg.lucide-loader {
+  animation: loader-spin 1s linear infinite !important;
+}
+
+/* Monospace code blocks */
+pre, code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.6);
+  outline-offset: 2px;
+}
+
+/* Button base */
+button {
+  font-family: inherit;
+}
+
+/* Input base */
+input, textarea, select {
+  font-family: inherit;
+  color-scheme: dark;
 }
