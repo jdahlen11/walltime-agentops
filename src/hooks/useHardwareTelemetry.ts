@@ -6,7 +6,7 @@ const STALE_MS = 2 * 60 * 1000
 
 function buildSnapshot(rows: HardwareTelemetryRow[]): HardwareSnapshot {
   // node_id is the real column name (was 'source' in our original schema)
-  const rtxRows = rows.filter((r) => r.node_id === 'rtx').sort((a, b) =>
+  const rtxRows = rows.filter((r) => r.node_id === 'rtx5090' || r.node_id === 'rtx').sort((a, b) =>
     b.recorded_at.localeCompare(a.recorded_at),
   )
   const macRows = rows.filter((r) => r.node_id === 'macmini' || r.node_id === 'mac_mini').sort((a, b) =>

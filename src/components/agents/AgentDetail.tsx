@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Send, Loader, X } from 'lucide-react'
 import type { AgentView, AgentId } from '../../lib/types'
-import { useCronLog } from '../../hooks/useCronLog'
 import { useDispatch } from '../../hooks/useDispatch'
 import AgentOutput from './AgentOutput'
 import DispatchModal from './DispatchModal'
@@ -17,7 +16,9 @@ type ActionType = 'dispatch' | 'linkedin' | 'email' | 'pr' | 'deploy' | null
 export default function AgentDetail({ agent, onClose }: AgentDetailProps) {
   const [chatText, setChatText] = useState('')
   const [activeModal, setActiveModal] = useState<ActionType>(null)
-  const { rows: cronLogs } = useCronLog(agent.id, 10)
+  // Use recentCrons from AgentView (loaded in App.tsx) — do NOT call useCronLog here,
+  // it would create a duplicate Supabase channel named 'ops_cron_changes' and crash.
+  const cronLogs = agent.recentCrons
   const { dispatch, sending } = useDispatch()
 
   const sendChat = async () => {
