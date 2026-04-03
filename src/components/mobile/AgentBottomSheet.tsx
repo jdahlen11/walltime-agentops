@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import type { AgentView } from '../../lib/types'
-import AgentDetail from '../agents/AgentDetail'
+import MobileAgentActivity from './MobileAgentActivity'
 
 interface AgentBottomSheetProps {
   agent: AgentView | null
@@ -44,7 +44,7 @@ export default function AgentBottomSheet({ agent, onClose }: AgentBottomSheetPro
               bottom: 0,
               left: 0,
               right: 0,
-              height: '60vh',
+              height: '80vh',
               background: '#0F1419',
               borderRadius: '20px 20px 0 0',
               zIndex: 91,
@@ -73,9 +73,9 @@ export default function AgentBottomSheet({ agent, onClose }: AgentBottomSheetPro
                 }}
               />
             </div>
-            {/* Content */}
+            {/* Content — activity log view replaces old AgentDetail */}
             <div style={{ flex: 1, overflow: 'hidden' }}>
-              <AgentDetail agent={agent} onClose={onClose} />
+              <MobileAgentActivity agent={agent} onClose={onClose} />
             </div>
           </motion.div>
         </>

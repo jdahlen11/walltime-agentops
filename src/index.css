@@ -71,6 +71,15 @@ svg.lucide-loader {
   animation: loader-spin 1s linear infinite !important;
 }
 
+/* Terminal cursor blink */
+@keyframes terminal-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.terminal-blink {
+  animation: terminal-blink 1s step-end infinite;
+}
+
 /* Monospace code blocks */
 pre, code {
   font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;

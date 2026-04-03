@@ -58,40 +58,61 @@ export default function MobileLayout({
                 zIndex: 10,
               }}
             >
-              {agents.map((a) => (
-                <div
-                  key={a.id}
-                  style={{
-                    background: 'rgba(10,14,23,0.85)',
-                    border: `1px solid ${a.color}40`,
-                    borderRadius: 16,
-                    padding: '4px 10px',
-                    fontSize: 11,
-                    color: 'rgba(255,255,255,0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    pointerEvents: 'auto',
-                    backdropFilter: 'blur(8px)',
-                  }}
-                  onClick={() => handleAgentTap(a)}
-                >
+              {agents.map((a) => {
+                const isActive = a.status === 'active' || a.status === 'processing'
+                const briefTask = isActive && a.recentCrons[0]
+                  ? a.recentCrons[0].job_name
+                  : null
+                return (
                   <div
-                    className={a.status === 'active' ? 'pulse-dot-active' : ''}
+                    key={a.id}
                     style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background:
-                        a.status === 'active' ? '#10B981'
-                        : a.status === 'error' ? '#EF4444'
-                        : '#F59E0B',
+                      background: isActive
+                        ? 'rgba(10,14,23,0.92)'
+                        : 'rgba(10,14,23,0.85)',
+                      border: `1px solid ${isActive ? a.color + '60' : a.color + '40'}`,
+                      borderRadius: 16,
+                      padding: '4px 10px',
+                      fontSize: 11,
+                      color: 'rgba(255,255,255,0.8)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      pointerEvents: 'auto',
+                      backdropFilter: 'blur(8px)',
                     }}
-                  />
-                  <span>{a.emoji}</span>
-                  <span style={{ fontWeight: 600 }}>{a.name}</span>
-                </div>
-              ))}
+                    onClick={() => handleAgentTap(a)}
+                  >
+                    <div
+                      className={a.status === 'active' ? 'pulse-dot-active' : ''}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background:
+                          a.status === 'active' ? '#10B981'
+                          : a.status === 'error' ? '#EF4444'
+                          : '#F59E0B',
+                      }}
+                    />
+                    <span>{a.emoji}</span>
+                    <span style={{ fontWeight: 600 }}>{a.name}</span>
+                    {briefTask && (
+                      <span style={{
+                        color: a.color,
+                        fontSize: 9,
+                        fontWeight: 500,
+                        maxWidth: 60,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {briefTask}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
             {/* Simplified bottom stats */}
             <div
